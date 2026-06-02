@@ -184,40 +184,51 @@
   const BOTS=[];
   function makeBot(x,z,color){
     const g=new T.Group(); g.position.set(x,0,z);
-    const shirt=new T.MeshStandardMaterial({color,roughness:0.85});
-    const pant=new T.MeshStandardMaterial({color:0x2c3e52,roughness:0.9});
-    const sk=new T.MeshStandardMaterial({color:0xe7b48a,roughness:0.85});
-    const shoe=new T.MeshStandardMaterial({color:0xeef3f7,roughness:0.6});
-    const sb=(r,m)=>new T.Mesh(new T.SphereGeometry(r,12,10),m);
-    const cy=(rt,rb,h,m)=>{const c=new T.Mesh(new T.CylinderGeometry(rt,rb,h,12),m);c.position.y=-h/2;return c;};
-    const pel=sb(0.17,pant); pel.scale.set(1.3,0.85,1); pel.position.y=0.92; g.add(pel);
-    const torso=new T.Mesh(new T.CylinderGeometry(0.185,0.15,0.5,16),shirt); torso.position.y=1.16; g.add(torso);
-    g.add(Object.assign(sb(0.135,shirt),{}).translateY(1.4));     // shoulders
-    const head=sb(0.15,sk); head.position.y=1.6; g.add(head);
-    g.add(Object.assign(sb(0.13,new T.MeshStandardMaterial({color:0x2a2f36,roughness:1})),{}).translateY(1.68)); // hair cap
+    const shirt=new T.MeshStandardMaterial({color,roughness:0.65,metalness:0.05});
+    const pant =new T.MeshStandardMaterial({color:0x2c3a4a,roughness:0.85});
+    const sk   =new T.MeshStandardMaterial({color:0xe8b48a,roughness:0.8});
+    const shoe =new T.MeshStandardMaterial({color:0xf3f6f9,roughness:0.5});
+    const hair =new T.MeshStandardMaterial({color:0x2a2118,roughness:1});
+    const eyeM =new T.MeshStandardMaterial({color:0x1d242c,roughness:0.4});
+    const SB=(r,m,sx,sy,sz)=>{const o=new T.Mesh(new T.SphereGeometry(r,18,14),m); if(sx!==undefined)o.scale.set(sx,sy,sz); return o;};
+    const CY=(rt,rb,h,m)=>{const c=new T.Mesh(new T.CylinderGeometry(rt,rb,h,16),m); c.position.y=-h/2; return c;};
+    const at=(mesh,X,Y,Z)=>{mesh.position.set(X||0,Y||0,Z||0); return mesh;};
+    // pelvis + smoothly tapered torso + chest
+    g.add(at(SB(0.155,pant,1.25,0.8,1),0,0.92,0));
+    g.add(at(CY(0.17,0.145,0.4,shirt),0,1.32,0));
+    g.add(at(SB(0.19,shirt,1,0.92,0.74),0,1.28,0.015));         // chest bulk
+    g.add(at(SB(0.135,shirt,1,0.85,1),0,1.46,0));               // shoulders/neck base
+    g.add(at(CY(0.058,0.058,0.1,sk),0,1.56,0));                 // neck
+    const head=at(SB(0.145,sk),0,1.67,0); g.add(head);
+    head.add(at(SB(0.15,hair,1,0.72,1),0,0.06,0.015));          // hair (top/back)
+    head.add(at(SB(0.024,eyeM),0.052,0.0,-0.128));              // eyes (front = -z)
+    head.add(at(SB(0.024,eyeM),-0.052,0.0,-0.128));
     const arms=[];
     for(const s of [-1,1]){
-      const sh=new T.Group(); sh.position.set(s*0.23,1.4,0); sh.rotation.x=0.25; g.add(sh);
-      sh.add(sb(0.062,shirt)); sh.add(cy(0.055,0.045,0.28,shirt));
-      const el=new T.Group(); el.position.y=-0.28; sh.add(el);
-      el.add(sb(0.05,sk)); el.add(cy(0.045,0.038,0.26,sk)); el.add(Object.assign(sb(0.052,sk),{}).translateY(-0.28));
+      const sh=new T.Group(); sh.position.set(s*0.235,1.43,0); sh.rotation.x=0.22; g.add(sh);
+      sh.add(SB(0.07,shirt)); sh.add(CY(0.06,0.048,0.3,shirt));
+      const el=new T.Group(); el.position.y=-0.3; sh.add(el);
+      el.add(SB(0.05,sk)); el.add(CY(0.05,0.04,0.27,sk)); el.add(at(SB(0.056,sk,1,1.2,0.85),0,-0.29,0));
       arms.push({sh,el});
     }
     const legs=[];
     for(const s of [-1,1]){
-      const hip=new T.Group(); hip.position.set(s*0.1,0.9,0); g.add(hip);
-      hip.add(sb(0.092,pant)); hip.add(cy(0.082,0.066,0.44,pant));
+      const hip=new T.Group(); hip.position.set(s*0.1,0.88,0); g.add(hip);
+      hip.add(SB(0.1,pant)); hip.add(CY(0.097,0.072,0.44,pant));
       const knee=new T.Group(); knee.position.y=-0.44; hip.add(knee);
-      knee.add(sb(0.07,pant)); knee.add(cy(0.066,0.052,0.46,pant));
+      knee.add(SB(0.076,pant)); knee.add(CY(0.072,0.056,0.46,pant));
       const ankle=new T.Group(); ankle.position.y=-0.46; knee.add(ankle);
-      ankle.add(sb(0.052,shoe));
-      const foot=new T.Mesh(new T.BoxGeometry(0.1,0.07,0.25),shoe); foot.position.set(0,-0.02,-0.06); ankle.add(foot);
-      ankle.add(Object.assign(sb(0.055,shoe),{}).translateY(-0.02).translateZ(-0.17)); // toe
+      ankle.add(SB(0.06,shoe));
+      ankle.add(at(new T.Mesh(new T.BoxGeometry(0.1,0.07,0.18),shoe),0,-0.02,-0.03)); // shoe body
+      ankle.add(at(SB(0.062,shoe,1,0.72,1.15),0,-0.02,-0.14));  // rounded toe
+      ankle.add(at(SB(0.055,shoe,1,0.8,1),0,-0.005,0.055));     // heel
       legs.push({hip,knee});
     }
-    const bbag=new T.Mesh(new T.SphereGeometry(0.058,12,10),new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.7}));
+    const shadow=new T.Mesh(new T.CircleGeometry(0.3,24),new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.22}));
+    shadow.rotation.x=-Math.PI/2; shadow.position.y=0.012; g.add(shadow);
+    const bbag=new T.Mesh(new T.SphereGeometry(0.058,14,12),new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.7}));
     g.add(bbag);
-    g.lookAt(0,0,0);                                              // yaw-only: face centre, upright
+    g.lookAt(0,0,0);                                             // face the player (front -z, eyes, toes toward centre)
     g.userData={legs,arms,bbag,phase:Math.random()*6.28,spd:2.3+Math.random()*0.6};
     scene.add(g); return g;
   }
@@ -269,20 +280,19 @@
     knee.add(ballM(0.072,matPants));                         // knee joint
     knee.add(segM(0.07,0.055,L_SHIN,matPants));              // shin
     const ankle=new T.Group(); ankle.position.y=-L_SHIN; knee.add(ankle); leg.ankle=ankle;
-    ankle.add(ballM(0.055,matShoe));                         // ankle
-    const shoe=new T.Mesh(new T.BoxGeometry(0.11,0.08,0.26),matShoe); shoe.position.set(0,-0.03,-0.07); ankle.add(shoe);
-    const toe=ballM(0.06,matShoe); toe.scale.set(1,0.7,1); toe.position.set(0,-0.03,-0.19); ankle.add(toe);
+    ankle.add(ballM(0.058,matShoe));                         // ankle
+    const shoe=new T.Mesh(new T.BoxGeometry(0.1,0.07,0.18),matShoe); shoe.position.set(0,-0.025,-0.04); ankle.add(shoe);
+    const toe=ballM(0.062,matShoe); toe.scale.set(1,0.72,1.15); toe.position.set(0,-0.02,-0.14); ankle.add(toe);
+    const heel=ballM(0.055,matShoe); heel.scale.set(1,0.8,1); heel.position.set(0,-0.005,0.05); ankle.add(heel);
     const footNode=new T.Object3D(); footNode.position.set(0,0.02,-0.08); ankle.add(footNode); leg.foot=footNode;
     const kneeNode=new T.Object3D(); kneeNode.position.set(0,0.0,-0.11); knee.add(kneeNode); leg.kneeNode=kneeNode;
     return leg;
   }
   const legL=makeLeg(-1), legR=makeLeg(1);
 
-  // torso + arms (upper body, shown only for chest/head)
-  // torso kept hidden — a vertical cylinder reads as an ugly disc from this top-down view;
-  // chest/head are shown via the arms coming up to trap the sack instead.
-  const torso=new T.Mesh(new T.CylinderGeometry(0.145,0.12,0.44,18),matShirt);
-  torso.position.set(0,1.06,-0.34); torso.rotation.x=0.34; torso.visible=false; upperBody.add(torso);
+  // chest surface — a rounded plate tilted up toward the looking-down camera, shown only for chest hits
+  const torso=new T.Mesh(new T.SphereGeometry(0.2,20,16),matShirt);
+  torso.scale.set(1.05,0.72,0.72); torso.position.set(0,1.12,-0.3); torso.rotation.x=0.5; torso.visible=false; upperBody.add(torso);
 
   function makeArm(sign){
     const arm={};
@@ -298,8 +308,8 @@
   }
   const armL=makeArm(-1), armR=makeArm(1);
   // contact nodes for chest / head (on the body centre-line, in front)
-  const chestNode=new T.Object3D(); chestNode.position.set(0,1.15,-0.72); upperBody.add(chestNode);
-  const headNode =new T.Object3D(); headNode.position.set(0,1.6,-0.7); upperBody.add(headNode);
+  const chestNode=new T.Object3D(); chestNode.position.set(0,1.14,-0.4); upperBody.add(chestNode);   // close in front of chest
+  const headNode =new T.Object3D(); headNode.position.set(0,1.58,-0.24); upperBody.add(headNode);    // right up at the screen for headers
 
   // ---- poses ---- (hx hip flex, hy hip rotate, hz hip roll, kx knee, ax ankle point, az foot turn)
   const legRest={hx:1.04,hy:0,hz:0,kx:-0.92,ax:0,az:0};
@@ -620,6 +630,7 @@
     poseLeg(legL,curL); poseLeg(legR,curR); poseArm(armL,curAL); poseArm(armR,curAR);
     const upActive = act==='chest'||act==='head'||((hitId==='chest'||hitId==='head')&&hitAge<300);
     upperBody.visible=!!upActive;
+    torso.visible = act==='chest'||(hitId==='chest'&&hitAge<320);   // show the chest surface for chest hits
   }
 
   // ---------- loop ----------
@@ -639,13 +650,14 @@
       blob.position.set(pos.x,0.012,pos.z);
       const bs=Math.max(0.4,1.1-pos.y*0.18); blob.scale.set(bs,bs,1); blob.material.opacity=Math.max(0.05,0.3-pos.y*0.07);
 
-      let offX=pos.x*0.55, offY=clamp((pos.y-0.95)*0.10,-0.14,0.10), offZ=0;
-      if(state.limb.id){const a=now-state.limb.t; if(a<300){const kk=Math.sin(Math.min(1,a/300)*Math.PI);
-        offX+=state.hitPos.x*0.6*kk; offY+=(state.hitPos.y-EYE)*0.12*kk; offZ+=-0.05*kk;}}
-      offX=clamp(offX,-0.32,0.32);
-      const tx=offX+Math.sin(t*0.9)*0.004, ty=EYE+offY+Math.sin(t*1.8)*0.005, tz=0.06+offZ;
+      let offX=pos.x*0.7, offY=clamp((pos.y-0.95)*0.13,-0.16,0.14), offZ=0;
+      if(state.limb.id){const a=now-state.limb.t; if(a<320){const kk=Math.sin(Math.min(1,a/320)*Math.PI);
+        offX+=state.hitPos.x*0.85*kk; offY+=(state.hitPos.y-EYE)*0.16*kk; offZ+=-0.07*kk;}}
+      offX=clamp(offX,-0.38,0.38);
+      // livelier head: more sway + lean toward where the sack is
+      const tx=offX+Math.sin(t*1.05)*0.012, ty=EYE+offY+Math.sin(t*1.9)*0.011, tz=0.06+offZ;
       camera.position.x+=(tx-camera.position.x)*ease; camera.position.y+=(ty-camera.position.y)*ease; camera.position.z+=(tz-camera.position.z)*ease;
-      tmpV.copy(restLook).lerp(pos,0.36); if(!state.isPass && tmpV.y>1.12)tmpV.y=1.12; state.gaze.lerp(tmpV,ease); camera.lookAt(state.gaze);
+      tmpV.copy(restLook).lerp(pos,0.52); if(tmpV.y>1.62)tmpV.y=1.62; state.gaze.lerp(tmpV,ease); camera.lookAt(state.gaze);
 
       if(!state.resolved){
         ringMesh.visible=true; ringMesh.position.copy(state.to); ringMesh.quaternion.copy(camera.quaternion);
