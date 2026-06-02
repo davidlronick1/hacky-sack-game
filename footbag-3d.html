@@ -20,12 +20,12 @@
     pointer-events:none;text-shadow:0 4px 18px rgba(0,0,0,.5);z-index:5;}
   #judge{position:absolute;top:21%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:800;opacity:0;
     pointer-events:none;letter-spacing:.04em;z-index:5;}
-  #pads{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(7,1fr);gap:5px;
-    padding:8px 8px 14px;z-index:5;}
+  #pads{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+    padding:8px 8px 12px;z-index:5;}
   .pad{position:relative;background:rgba(22,34,46,.72);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.08);
-    border-radius:13px;padding:10px 2px;text-align:center;font-weight:700;font-size:11px;color:var(--ink);
+    border-radius:13px;padding:9px 2px;text-align:center;font-weight:700;font-size:12px;color:var(--ink);
     transition:transform .05s,background .1s;}
-  .pad .emoji{font-size:19px;display:block;margin-bottom:1px;}
+  .pad .emoji{font-size:20px;display:block;margin-bottom:1px;}
   .pad.lit{background:#26415a;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset,0 0 22px rgba(255,216,77,.4);}
   .pad.hold{border-color:#b98cff;box-shadow:0 0 0 2px #b98cff inset,0 0 22px rgba(185,140,255,.55);}
   .pad:active{transform:scale(.93);}
@@ -90,7 +90,7 @@
     </div>
     <button class="cta" id="startBtn">Play</button>
     <button class="ghost" id="customBtn">🎨 Customize</button>
-    <div class="tip">Desktop: keys 1–7. Tap right as the ring meets the sack for a <b style="color:var(--perfect)">Perfect</b>. Neck/Back are high-loft stalls. Build a combo, then swipe up to pass.</div>
+    <div class="tip">Desktop: keys 1–8 (Inside, Outside, Toe, Knee, Chest, Head, Neck, Back). Tap as the ring meets the sack for a <b style="color:var(--perfect)">Perfect</b>. Neck/Back are high-loft stalls. Build a combo, then swipe up to pass to a teammate.</div>
   </div>
 
   <div class="screen hidden" id="customScreen">
@@ -141,6 +141,7 @@
   const MOVES=[
     {id:'inside', name:'Inside', emoji:'🦶', pos:new T.Vector3()},
     {id:'outside',name:'Outside',emoji:'👟', pos:new T.Vector3()},
+    {id:'toe',    name:'Toe',    emoji:'⬆️', pos:new T.Vector3()},
     {id:'knee',   name:'Knee',   emoji:'🦵', pos:new T.Vector3()},
     {id:'chest',  name:'Chest',  emoji:'🫷', pos:new T.Vector3()},
     {id:'head',   name:'Head',   emoji:'🙆', pos:new T.Vector3()},
@@ -187,24 +188,68 @@
     ring.rotation.x=-Math.PI/2; ring.position.y=0.01; scene.add(ring);
   }
 
-  // ---------- teammates (bots) across the circle ----------
+  // ---------- teammates (bots) across the circle — jointed figures that juggle ----------
   const BOTS=[];
   function makeBot(x,z,color){
     const g=new T.Group(); g.position.set(x,0,z);
     const shirt=new T.MeshStandardMaterial({color,roughness:0.85});
-    const pant=new T.MeshStandardMaterial({color:0x2b3f54,roughness:0.9});
+    const pant=new T.MeshStandardMaterial({color:0x2c3e52,roughness:0.9});
     const sk=new T.MeshStandardMaterial({color:0xe7b48a,roughness:0.85});
-    const torso=new T.Mesh(new T.CylinderGeometry(0.17,0.14,0.62,14),shirt); torso.position.y=1.04; g.add(torso);
-    const head=new T.Mesh(new T.SphereGeometry(0.15,16,12),sk); head.position.y=1.45; g.add(head);
+    const shoe=new T.MeshStandardMaterial({color:0xeef3f7,roughness:0.6});
+    const sb=(r,m)=>new T.Mesh(new T.SphereGeometry(r,12,10),m);
+    const cy=(rt,rb,h,m)=>{const c=new T.Mesh(new T.CylinderGeometry(rt,rb,h,12),m);c.position.y=-h/2;return c;};
+    const pel=sb(0.17,pant); pel.scale.set(1.3,0.85,1); pel.position.y=0.92; g.add(pel);
+    const torso=new T.Mesh(new T.CylinderGeometry(0.185,0.15,0.5,16),shirt); torso.position.y=1.16; g.add(torso);
+    g.add(Object.assign(sb(0.135,shirt),{}).translateY(1.4));     // shoulders
+    const head=sb(0.15,sk); head.position.y=1.6; g.add(head);
+    g.add(Object.assign(sb(0.13,new T.MeshStandardMaterial({color:0x2a2f36,roughness:1})),{}).translateY(1.68)); // hair cap
+    const arms=[];
     for(const s of [-1,1]){
-      const leg=new T.Mesh(new T.CylinderGeometry(0.075,0.06,0.72,10),pant); leg.position.set(s*0.08,0.37,0); g.add(leg);
-      const arm=new T.Mesh(new T.CylinderGeometry(0.05,0.045,0.5,10),shirt); arm.position.set(s*0.21,1.05,0); g.add(arm);
+      const sh=new T.Group(); sh.position.set(s*0.23,1.4,0); sh.rotation.x=0.25; g.add(sh);
+      sh.add(sb(0.062,shirt)); sh.add(cy(0.055,0.045,0.28,shirt));
+      const el=new T.Group(); el.position.y=-0.28; sh.add(el);
+      el.add(sb(0.05,sk)); el.add(cy(0.045,0.038,0.26,sk)); el.add(Object.assign(sb(0.052,sk),{}).translateY(-0.28));
+      arms.push({sh,el});
     }
-    g.lookAt(0,0,0); g.userData={base:0}; scene.add(g); return g;   // yaw-only: face center, stay upright
+    const legs=[];
+    for(const s of [-1,1]){
+      const hip=new T.Group(); hip.position.set(s*0.1,0.9,0); g.add(hip);
+      hip.add(sb(0.092,pant)); hip.add(cy(0.082,0.066,0.44,pant));
+      const knee=new T.Group(); knee.position.y=-0.44; hip.add(knee);
+      knee.add(sb(0.07,pant)); knee.add(cy(0.066,0.052,0.46,pant));
+      const ankle=new T.Group(); ankle.position.y=-0.46; knee.add(ankle);
+      ankle.add(sb(0.052,shoe));
+      const foot=new T.Mesh(new T.BoxGeometry(0.1,0.07,0.25),shoe); foot.position.set(0,-0.02,-0.06); ankle.add(foot);
+      ankle.add(Object.assign(sb(0.055,shoe),{}).translateY(-0.02).translateZ(-0.17)); // toe
+      legs.push({hip,knee});
+    }
+    const bbag=new T.Mesh(new T.SphereGeometry(0.058,12,10),new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.7}));
+    g.add(bbag);
+    g.lookAt(0,0,0);                                              // yaw-only: face centre, upright
+    g.userData={legs,arms,bbag,phase:Math.random()*6.28,spd:2.3+Math.random()*0.6};
+    scene.add(g); return g;
   }
   BOTS.push(makeBot(-1.15,-1.35,0xd9544d));
   BOTS.push(makeBot(0,-1.75,0x4dd07f));
   BOTS.push(makeBot(1.15,-1.35,0xe0a93c));
+
+  // bots juggle their own sack: bag bounces, the kicking leg lifts to meet it, move type cycles
+  function updateBots(dt){
+    for(const b of BOTS){
+      const u=b.userData; u.phase+=dt*u.spd;
+      const c=Math.sin(u.phase), tphase=(c+1)/2;               // 0..1..0
+      const low=1-tphase;                                       // 1 at bottom of bounce
+      u.bbag.position.set(Math.sin(u.phase*0.7)*0.05, 0.2+tphase*0.62, -0.34);
+      const which=Math.floor(u.phase/Math.PI)%2;               // alternate legs
+      const move=Math.floor(u.phase/(Math.PI*3))%3;            // 0 inside, 1 toe, 2 knee
+      u.legs[0].hip.rotation.set(0,0,0); u.legs[0].knee.rotation.x=0;
+      u.legs[1].hip.rotation.set(0,0,0); u.legs[1].knee.rotation.x=0;
+      const lg=u.legs[which];
+      if(move===2){ lg.hip.rotation.x=low*1.5; lg.knee.rotation.x=low*1.1; }          // knee raise
+      else if(move===1){ lg.hip.rotation.x=low*1.0; lg.knee.rotation.x=low*0.25; }    // toe (straight)
+      else { lg.hip.rotation.x=low*0.85; lg.hip.rotation.z=(which?-1:1)*low*0.45; lg.knee.rotation.x=low*0.5; } // inside
+    }
+  }
 
   // ---------- connected first-person body ----------
   const matSkin =new T.MeshStandardMaterial({color:0xe7b48a,roughness:0.85});
@@ -235,7 +280,7 @@
     ankle.add(ballM(0.055,matShoe));                         // ankle
     const shoe=new T.Mesh(new T.BoxGeometry(0.11,0.08,0.26),matShoe); shoe.position.set(0,-0.03,-0.07); ankle.add(shoe);
     const toe=ballM(0.06,matShoe); toe.scale.set(1,0.7,1); toe.position.set(0,-0.03,-0.19); ankle.add(toe);
-    const footNode=new T.Object3D(); footNode.position.set(0,0.05,-0.14); ankle.add(footNode); leg.foot=footNode;
+    const footNode=new T.Object3D(); footNode.position.set(0,0.02,-0.08); ankle.add(footNode); leg.foot=footNode;
     const kneeNode=new T.Object3D(); kneeNode.position.set(0,0.0,-0.11); knee.add(kneeNode); leg.kneeNode=kneeNode;
     return leg;
   }
@@ -264,17 +309,18 @@
   const chestNode=new T.Object3D(); chestNode.position.set(0,1.15,-0.72); upperBody.add(chestNode);
   const headNode =new T.Object3D(); headNode.position.set(0,1.6,-0.7); upperBody.add(headNode);
 
-  // ---- poses ----
-  const legRest={hx:1.04,hz:0,kx:-0.92};
+  // ---- poses ---- (hx hip flex, hy hip rotate, hz hip roll, kx knee, ax ankle point, az foot turn)
+  const legRest={hx:1.04,hy:0,hz:0,kx:-0.92,ax:0,az:0};
   const STRIKE={
-    inside :{leg:legL, eff:'foot',     pose:{hx:1.0, hz:0.12, kx:-0.38}},
-    outside:{leg:legR, eff:'foot',     pose:{hx:1.0, hz:-0.12,kx:-0.38}},
-    knee   :{leg:legL, eff:'kneeNode', pose:{hx:0.5, hz:0,    kx:-1.30}},
+    inside :{leg:legL, eff:'foot',     pose:{hx:1.0, hy:0, hz:0.18, kx:-0.40, ax:0,   az:0.6}},   // instep turned up, foot to centre
+    outside:{leg:legR, eff:'foot',     pose:{hx:0.95,hy:0, hz:0.32, kx:-0.42, ax:0,   az:-0.6}},  // outstep up, leg out to the side
+    toe    :{leg:legR, eff:'foot',     pose:{hx:1.12,hy:0, hz:0,    kx:-0.18, ax:0.6, az:0}},      // straight snap, toe pointed
+    knee   :{leg:legL, eff:'kneeNode', pose:{hx:0.5, hy:0, hz:0,    kx:-1.30, ax:0,   az:0}},      // thigh up to ~90°
   };
   const armRest={sh:0.15,el:0.2};
   const ARMSTRIKE={ chest:{sh:1.0,el:0.5}, head:{sh:1.9,el:0.4} };
 
-  function poseLeg(leg,p){ leg.hip.rotation.set(p.hx,0,p.hz); leg.knee.rotation.x=p.kx; }
+  function poseLeg(leg,p){ leg.hip.rotation.set(p.hx,p.hy||0,p.hz||0); leg.knee.rotation.x=p.kx; if(leg.ankle)leg.ankle.rotation.set(p.ax||0,0,p.az||0); }
   function poseArm(arm,p){ arm.sh.rotation.x=p.sh; arm.el.rotation.x=p.el; }
   function restAll(){ poseLeg(legL,legRest); poseLeg(legR,legRest); poseArm(armL,armRest); poseArm(armR,armRest); }
 
@@ -286,13 +332,11 @@
     for(const m of MOVES){
       if(m.stallOnly) continue;   // neck/back have fixed contacts
       restAll();
-      if(m.id==='inside'||m.id==='outside'||m.id==='knee'){ const s=STRIKE[m.id]; poseLeg(s.leg,s.pose); }
-      else if(m.id==='chest'){ poseArm(armL,ARMSTRIKE.chest); poseArm(armR,ARMSTRIKE.chest); }
-      else if(m.id==='head'){ poseArm(armL,ARMSTRIKE.head); poseArm(armR,ARMSTRIKE.head); }
-      scene.updateMatrixWorld(true);
       let node;
-      if(m.id==='inside') node=legL.foot; else if(m.id==='outside') node=legR.foot;
-      else if(m.id==='knee') node=legL.kneeNode; else if(m.id==='chest') node=chestNode; else node=headNode;
+      if(STRIKE[m.id]){ const s=STRIKE[m.id]; poseLeg(s.leg,s.pose); node = s.eff==='kneeNode'?s.leg.kneeNode:s.leg.foot; }
+      else if(m.id==='chest'){ poseArm(armL,ARMSTRIKE.chest); poseArm(armR,ARMSTRIKE.chest); node=chestNode; }
+      else { poseArm(armL,ARMSTRIKE.head); poseArm(armR,ARMSTRIKE.head); node=headNode; }
+      scene.updateMatrixWorld(true);
       node.getWorldPosition(m.pos);
     }
     restAll();
@@ -385,8 +429,9 @@
     state.target=move; state.from.copy(fromPt); state.to.copy(move.pos);
     state.t0=now; state.idealT=now+travel;
     const mx=(fromPt.x+move.pos.x)*0.5, mz=(fromPt.z+move.pos.z)*0.5;
-    if(move.loft){ state.apex.set(mx+(Math.random()-0.5)*0.08, move.loft, mz-0.05); }   // high loft for neck/back
-    else { state.apex.set(mx+(Math.random()-0.5)*0.1, 1.68+Math.random()*0.22, mz-0.9-Math.random()*0.3); }
+    // clean gravity arc: peak roughly above the midpoint, higher the longer it's in the air
+    if(move.loft){ state.apex.set(mx+(Math.random()-0.5)*0.08, move.loft, mz-0.08); }   // high loft for neck/back
+    else { state.apex.set(mx+(Math.random()-0.5)*0.08, 1.45+travel/1600*0.95, mz-0.1); }
     state.isPass = !!move.isPass;
     state.isStall = move.isPass ? false : (move.stallOnly ? true : !!(state.combo>=3 && Math.random()<0.18));
     state.resolved=false;
@@ -551,13 +596,14 @@
   }
 
   // ---------- drive the body: limbs anticipate & meet the incoming sack ----------
-  function lerpPoseLeg(cur,des,t){cur.hx=lerp(cur.hx,des.hx,t);cur.hz=lerp(cur.hz,des.hz,t);cur.kx=lerp(cur.kx,des.kx,t);}
+  const LK=['hx','hy','hz','kx','ax','az'];
+  function lerpPoseLeg(cur,des,t){for(const k of LK)cur[k]=lerp(cur[k]||0,des[k]||0,t);}
   function lerpPoseArm(cur,des,t){cur.sh=lerp(cur.sh,des.sh,t);cur.el=lerp(cur.el,des.el,t);}
   const easeOutBack=t=>{const s=1.6;return 1+(s+1)*Math.pow(t-1,3)+s*Math.pow(t-1,2);};
   const easeOutCubic=t=>1-Math.pow(1-t,3);
-  const mixLeg=(a,b,t)=>({hx:lerp(a.hx,b.hx,t),hz:lerp(a.hz,b.hz,t),kx:lerp(a.kx,b.kx,t)});
+  const mixLeg=(a,b,t)=>{const o={};for(const k of LK)o[k]=lerp(a[k]||0,b[k]||0,t);return o;};
   const mixArm=(a,b,t)=>({sh:lerp(a.sh,b.sh,t),el:lerp(a.el,b.el,t)});
-  const beyondLeg=s=>({hx:legRest.hx+(s.hx-legRest.hx)*1.22,hz:legRest.hz+(s.hz-legRest.hz)*1.22,kx:legRest.kx+(s.kx-legRest.kx)*1.22});
+  const beyondLeg=s=>{const o={};for(const k of LK)o[k]=legRest[k]+((s[k]||0)-legRest[k])*1.22;return o;};
   const FT=260; // follow-through window (ms)
   function driveBody(dt){
     const now=performance.now();
@@ -565,13 +611,14 @@
     let swing=easeOutBack(state?clamp((state.p-0.4)/0.6,0,1):0);   // snappy swing peaking at contact
     if(state&&state.stalling){act=state.stalling.part; swing=1;}    // hold the limb under the sack
     const hitId=state?state.limb.id:null, hitAge=state?now-state.limb.t:1e9;
-    let dL=legRest;
+    let dL=legRest;                                            // left leg: inside / knee
     if(act==='inside')    dL=mixLeg(legRest,STRIKE.inside.pose,swing);
     else if(act==='knee') dL=mixLeg(legRest,STRIKE.knee.pose,swing);
     else if((hitId==='inside'||hitId==='knee')&&hitAge<FT) dL=mixLeg(beyondLeg(STRIKE[hitId].pose),legRest,easeOutCubic(hitAge/FT)); // follow-through
-    let dR=legRest;
+    let dR=legRest;                                            // right leg: outside / toe
     if(act==='outside')   dR=mixLeg(legRest,STRIKE.outside.pose,swing);
-    else if(hitId==='outside'&&hitAge<FT) dR=mixLeg(beyondLeg(STRIKE.outside.pose),legRest,easeOutCubic(hitAge/FT));
+    else if(act==='toe')  dR=mixLeg(legRest,STRIKE.toe.pose,swing);
+    else if((hitId==='outside'||hitId==='toe')&&hitAge<FT) dR=mixLeg(beyondLeg(STRIKE[hitId].pose),legRest,easeOutCubic(hitAge/FT));
     let dA=armRest;
     if(act==='chest')     dA=mixArm(armRest,ARMSTRIKE.chest,swing);
     else if(act==='head') dA=mixArm(armRest,ARMSTRIKE.head,swing);
@@ -589,6 +636,7 @@
     requestAnimationFrame(animate);
     const now=performance.now(), dt=Math.min(0.05,clock.getDelta()), t=clock.elapsedTime;
     const ease=1-Math.pow(0.0012,dt);
+    updateBots(dt);                                            // teammates juggle in the background
 
     if(running&&state){
       if(state.stalling){ updateStall(now,dt,t); }
@@ -661,7 +709,7 @@
   buildSw(document.getElementById('outSwatches'),OUTFITS,'shirt',outIdx,i=>{outIdx=i;applyCustom();try{localStorage.setItem('fb3d_out',i);}catch(e){}});
   document.getElementById('customBtn').addEventListener('click',()=>{startScreen.classList.add('hidden');customScreen.classList.remove('hidden');});
   document.getElementById('customDone').addEventListener('click',()=>{customScreen.classList.add('hidden');startScreen.classList.remove('hidden');});
-  const keymap={'1':'inside','2':'outside','3':'knee','4':'chest','5':'head','6':'neck','7':'back',a:'inside',s:'outside',d:'knee',f:'chest',' ':'head'};
+  const keymap={'1':'inside','2':'outside','3':'toe','4':'knee','5':'chest','6':'head','7':'neck','8':'back',a:'inside',s:'outside',d:'toe',f:'knee',g:'chest',' ':'head'};
   window.addEventListener('keydown',e=>{
     if(e.key==='ArrowLeft'){keyTilt=-1;return;} if(e.key==='ArrowRight'){keyTilt=1;return;}
     if(e.key==='ArrowUp'){ if(running&&state&&state.isPass&&!state.resolved)executePass(0); return; }
