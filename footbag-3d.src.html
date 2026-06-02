@@ -228,7 +228,7 @@
     shadow.rotation.x=-Math.PI/2; shadow.position.y=0.012; g.add(shadow);
     const bbag=new T.Mesh(new T.SphereGeometry(0.058,14,12),new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.7}));
     g.add(bbag);
-    g.lookAt(0,0,0);                                             // face the player (front -z, eyes, toes toward centre)
+    g.rotation.y=Math.atan2(x,z);                               // front (-z: eyes, toes, bag) faces the player
     g.userData={legs,arms,bbag,phase:Math.random()*6.28,spd:2.3+Math.random()*0.6};
     scene.add(g); return g;
   }
