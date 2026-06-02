@@ -97,6 +97,7 @@
   const T=window.THREE;
   const loadingEl=document.getElementById('loading');
   if(!T){ loadingEl.textContent='Could not load 3D library.'; return; }
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
   const padsEl=document.getElementById('pads');
   const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
@@ -168,8 +169,8 @@
   const soleMat=new T.MeshStandardMaterial({color:0x9aa6b0,roughness:0.8});
 
   // tiny waistband, kept low/back so it's just a sliver at the bottom (no chest blob)
-  const torso=new T.Mesh(new T.CylinderGeometry(0.135,0.12,0.24,18),shirt);
-  torso.position.set(0,0.92,-0.04); torso.rotation.x=0.25; scene.add(torso);
+  const torso=new T.Mesh(new T.CylinderGeometry(0.16,0.135,0.5,18),shirt);
+  torso.position.set(0,1.12,-0.16); torso.rotation.x=0.18; torso.visible=false; scene.add(torso);
 
   function makeLeg(sign){
     const hip=new T.Group(); hip.position.set(sign*0.12,0.9,-0.02);
@@ -254,14 +255,16 @@
   let running=false, state=null;
   const clock=new T.Clock();
   function newState(){return {score:0,combo:0,bestCombo:0,perfects:0,touches:0,speedBoost:0,
-    target:null,from:new T.Vector3(),to:new T.Vector3(),apex:new T.Vector3(),
+    target:null,from:new T.Vector3(),to:new T.Vector3(),apex:new T.Vector3(),hitPos:new T.Vector3(),
     t0:0,idealT:0,resolved:false,limb:{id:null,t:0},gaze:new T.Vector3().copy(restLook)};}
 
   function launchTo(move,fromPt,now){
     const travel=Math.max(380,DIFF[mode].travel-state.speedBoost);
     state.target=move; state.from.copy(fromPt); state.to.copy(move.pos);
     state.t0=now; state.idealT=now+travel;
-    state.apex.set((Math.random()-0.5)*0.5, 2.2+Math.random()*0.4, -1.9-Math.random()*0.5);
+    // pop straight up between the two body parts and come back down — stays in play
+    const mx=(fromPt.x+move.pos.x)*0.5, mz=(fromPt.z+move.pos.z)*0.5;
+    state.apex.set(mx+(Math.random()-0.5)*0.12, 1.85+Math.random()*0.3, mz+0.04);
     state.resolved=false; lightPad(move.id);
   }
   function seg(a,mid,b,p){const la=(a-mid)/0.25,lb=(b-mid)/0.25;return p<0.5?mid+la*(p-0.5)*(p-0.5):mid+lb*(p-0.5)*(p-0.5);}
@@ -288,6 +291,7 @@
       if(q==='perfect')state.perfects++;
       state.speedBoost+=DIFF[mode].ramp;
       showJudge(q,gained);flashCombo();burst(state.to,q);
+      state.hitPos.copy(state.to);              // remember the struck limb's spot
       state.limb={id:state.target.id,t:now};
       launchTo(pickNext(),state.to,now);
     }else{
@@ -356,9 +360,7 @@
     requestAnimationFrame(animate);
     const now=performance.now(), dt=Math.min(0.05,clock.getDelta()), t=clock.elapsedTime;
 
-    // very subtle, stable head motion
-    camera.position.x=Math.sin(t*0.9)*0.006;
-    camera.position.y=EYE+Math.sin(t*1.8)*0.006;
+    const ease=1-Math.pow(0.0012,dt);
 
     if(running&&state){
       const {pos}=bagPos(now);
@@ -367,10 +369,31 @@
       const bs=Math.max(0.4,1.1-pos.y*0.18); blob.scale.set(bs,bs,1);
       blob.material.opacity=Math.max(0.05,0.3-pos.y*0.07);
 
-      // gaze: forward-down rest, eyes follow the sack as it rises/falls
-      tmpV.copy(restLook).lerp(pos,0.26);
-      state.gaze.lerp(tmpV,1-Math.pow(0.0015,dt));
+      // --- move the viewpoint: strafe to centre the sack + lunge toward the striking limb ---
+      let offX=pos.x*0.55;                              // strafe with the sack
+      let offY=clamp((pos.y-0.95)*0.10,-0.14,0.10);    // dip for low, lift for high
+      let offZ=0;
+      if(state.limb.id){
+        const a=now-state.limb.t;
+        if(a<300){ const kk=Math.sin(Math.min(1,a/300)*Math.PI);
+          offX+=state.hitPos.x*0.6*kk;                 // shift toward the limb that hit
+          offY+=(state.hitPos.y-EYE)*0.12*kk;          // drop toward low limbs
+          offZ+=-0.05*kk;                              // small forward lean
+        }
+      }
+      offX=clamp(offX,-0.32,0.32);
+      const tx=offX+Math.sin(t*0.9)*0.004, ty=EYE+offY+Math.sin(t*1.8)*0.005, tz=0.06+offZ;
+      camera.position.x+=(tx-camera.position.x)*ease;
+      camera.position.y+=(ty-camera.position.y)*ease;
+      camera.position.z+=(tz-camera.position.z)*ease;
+
+      // gaze follows the sack (combined with strafe this keeps it centred)
+      tmpV.copy(restLook).lerp(pos,0.42);
+      state.gaze.lerp(tmpV,ease);
       camera.lookAt(state.gaze);
+
+      // show the chest only when it's the body part in play
+      torso.visible = (state.target&&state.target.id==='chest') || (state.limb.id==='chest'&&(now-state.limb.t)<360);
 
       if(!state.resolved){
         ringMesh.visible=true; ringMesh.position.copy(state.to); ringMesh.quaternion.copy(camera.quaternion);
@@ -388,7 +411,11 @@
       }
       updateHUD();
     }else{
-      ringMesh.visible=false; camera.lookAt(restLook); setRest();
+      ringMesh.visible=false; torso.visible=false;
+      camera.position.x+=((Math.sin(t*0.9)*0.004)-camera.position.x)*ease;
+      camera.position.y+=((EYE+Math.sin(t*1.8)*0.005)-camera.position.y)*ease;
+      camera.position.z+=(0.06-camera.position.z)*ease;
+      camera.lookAt(restLook); setRest();
     }
 
     let any=false;
