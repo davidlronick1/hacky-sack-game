@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Footbag — Hacky Sack</title>
+<style>
+  :root{
+    --bg1:#1a2a3a; --bg2:#0d161f; --accent:#ffd84d; --good:#4dd07f;
+    --perfect:#5ad1ff; --miss:#ff5d6c; --panel:#16222e; --ink:#eaf2f8;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  body{background:radial-gradient(120% 90% at 50% 0%, var(--bg1), var(--bg2));color:var(--ink);
+       display:flex;flex-direction:column;align-items:center;justify-content:center;user-select:none;}
+  #wrap{position:relative;width:min(100vw,480px);height:min(100vh,860px);display:flex;flex-direction:column;}
+  canvas{display:block;width:100%;flex:1;touch-action:none;}
+
+  /* HUD */
+  #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;
+       padding:14px 18px;pointer-events:none;font-variant-numeric:tabular-nums;}
+  .stat{background:rgba(0,0,0,.25);backdrop-filter:blur(6px);padding:6px 12px;border-radius:12px;}
+  .stat b{color:var(--accent);font-size:20px;}
+  #viewBtn{pointer-events:auto;align-self:flex-start;background:rgba(0,0,0,.3);backdrop-filter:blur(6px);
+           border:1px solid rgba(255,255,255,.15);color:var(--ink);font-weight:700;font-size:13px;
+           padding:8px 12px;border-radius:12px;cursor:pointer;}
+  #viewBtn:active{transform:scale(.95);}
+  .label{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;}
+  #combo{position:absolute;top:46%;left:50%;transform:translate(-50%,-50%);
+         font-size:46px;font-weight:800;opacity:0;pointer-events:none;text-shadow:0 4px 18px rgba(0,0,0,.4);}
+  #judge{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);
+         font-size:26px;font-weight:800;opacity:0;pointer-events:none;letter-spacing:.04em;}
+
+  /* Buttons */
+  #pads{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 12px 16px;}
+  .pad{position:relative;background:var(--panel);border:2px solid rgba(255,255,255,.08);
+       border-radius:16px;padding:14px 6px;text-align:center;font-weight:700;font-size:14px;
+       color:var(--ink);transition:transform .05s, background .1s;overflow:hidden;}
+  .pad .emoji{font-size:24px;display:block;margin-bottom:2px;}
+  .pad.lit{background:#23384a;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset, 0 0 22px rgba(255,216,77,.35);}
+  .pad:active{transform:scale(.94);}
+  .pad .ring{position:absolute;inset:0;border-radius:14px;pointer-events:none;}
+
+  /* Overlays */
+  .screen{position:absolute;inset:0;background:rgba(7,12,17,.86);backdrop-filter:blur(4px);
+          display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;z-index:10;}
+  .hidden{display:none;}
+  h1{font-size:40px;margin:0 0 4px;letter-spacing:-.02em;}
+  h1 .em{color:var(--accent);}
+  .sub{opacity:.75;max-width:300px;line-height:1.5;margin-bottom:22px;font-size:14px;}
+  button.cta{background:var(--accent);color:#1a1207;border:none;font-weight:800;font-size:17px;
+             padding:14px 30px;border-radius:30px;cursor:pointer;box-shadow:0 8px 24px rgba(255,216,77,.3);}
+  button.cta:active{transform:scale(.96);}
+  .modes{display:flex;gap:10px;margin-bottom:20px;}
+  .mode{background:var(--panel);border:2px solid rgba(255,255,255,.1);color:var(--ink);
+        padding:10px 16px;border-radius:14px;font-weight:700;font-size:13px;cursor:pointer;}
+  .mode.on{border-color:var(--accent);background:#23384a;}
+  .big{font-size:60px;font-weight:800;color:var(--accent);margin:6px 0;}
+  .row{display:flex;gap:28px;margin-bottom:18px;}
+  .row .num{font-size:26px;font-weight:800;}
+  .tip{font-size:12px;opacity:.6;margin-top:18px;max-width:280px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <div class="stat"><div class="label">Score</div><b id="score">0</b></div>
+    <button id="viewBtn">👁️ 1st</button>
+    <div class="stat" style="text-align:right"><div class="label">Best</div><b id="best">0</b></div>
+  </div>
+  <div id="combo"></div>
+  <div id="judge"></div>
+
+  <div id="pads"></div>
+
+  <!-- Start screen -->
+  <div class="screen" id="startScreen">
+    <h1>Foot<span class="em">bag</span></h1>
+    <div class="sub">Keep the sack in the air. When a body part lights up, tap its button as the ring snaps shut. Chain hits for combos.</div>
+    <div class="modes" id="modeSel">
+      <div class="mode" data-mode="peaceful">🌿 Peaceful</div>
+      <div class="mode on" data-mode="normal">⚡ Normal</div>
+      <div class="mode" data-mode="pro">🔥 Pro</div>
+    </div>
+    <div class="modes" id="viewSel">
+      <div class="mode on" data-view="first">👁️ 1st person</div>
+      <div class="mode" data-view="third">🧍 3rd person</div>
+    </div>
+    <button class="cta" id="startBtn">Play</button>
+    <div class="tip">Tip: tap the moment the shrinking ring meets the sack for a <b style="color:var(--perfect)">Perfect</b>.</div>
+  </div>
+
+  <!-- Game over -->
+  <div class="screen hidden" id="overScreen">
+    <h1>Dropped!</h1>
+    <div class="big" id="finalScore">0</div>
+    <div class="row">
+      <div><div class="label">Best Combo</div><div class="num" id="bestCombo">0</div></div>
+      <div><div class="label">Perfects</div><div class="num" id="perfectCount">0</div></div>
+      <div><div class="label">Touches</div><div class="num" id="touchCount">0</div></div>
+    </div>
+    <button class="cta" id="againBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+(()=>{
+  "use strict";
+  const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
+  const padsEl=document.getElementById('pads');
+  const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
+  const comboEl=document.getElementById('combo'), judgeEl=document.getElementById('judge');
+  const startScreen=document.getElementById('startScreen'), overScreen=document.getElementById('overScreen');
+
+  // ---- Move definitions: body parts, button + contact height (0=ground level, 1=top of body) ----
+  const MOVES=[
+    {id:'inside',  name:'Inside',  emoji:'🦶', h:0.06, side:0},
+    {id:'outside', name:'Outside', emoji:'👟', h:0.10, side:1},
+    {id:'knee',    name:'Knee',    emoji:'🦵', h:0.34, side:0},
+    {id:'chest',   name:'Chest',   emoji:'🫷', h:0.62, side:0},
+    {id:'head',    name:'Head',    emoji:'🙆', h:0.92, side:0},
+  ];
+
+  // ---- Difficulty presets ----
+  const DIFF={
+    peaceful:{travel:1500, perfect:170, good:300, ok:430, forgive:true,  ramp:0,     label:'Peaceful'},
+    normal:  {travel:1150, perfect:110, good:200, ok:300, forgive:false, ramp:14,    label:'Normal'},
+    pro:     {travel:820,  perfect:80,  good:150, ok:215, forgive:false, ramp:22,    label:'Pro'},
+  };
+  let mode='normal';
+  let view='first';   // 'first' | 'third'
+
+  // ---- State ----
+  let W=0,H=0,DPR=1, groundY=0, bodyH=0, charX=0;
+  let running=false, raf=null;
+  let state=null;
+
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    const r=canvas.getBoundingClientRect();
+    W=r.width; H=r.height;
+    canvas.width=W*DPR; canvas.height=H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    groundY=H*0.86; bodyH=H*0.52; charX=W*0.5;
+  }
+  window.addEventListener('resize',resize);
+
+  // first-person contact zones (where the sack meets you), as fractions of W/H
+  const FP={inside:[-0.10,0.80], outside:[0.17,0.78], knee:[-0.03,0.66], chest:[0.0,0.50], head:[0.0,0.37]};
+  const moveById=id=>MOVES.find(m=>m.id===id);
+  const horizonY=()=>H*0.30;
+
+  // contact point (x,y) for a move — view aware
+  function contactPoint(m){
+    if(view==='first'){
+      const f=FP[m.id]; return {x:charX+f[0]*W, y:H*f[1]};
+    }
+    const y=groundY-m.h*bodyH;
+    const x=charX + (m.side? (m.id==='outside'?-1:1)*W*0.16 : (m.id==='inside'?W*0.07:0));
+    return {x,y};
+  }
+
+  // ---- Build pad buttons ----
+  const padMap={};
+  function buildPads(){
+    padsEl.innerHTML='';
+    MOVES.forEach(m=>{
+      const b=document.createElement('div');
+      b.className='pad'; b.dataset.id=m.id;
+      b.innerHTML=`<span class="emoji">${m.emoji}</span>${m.name}<span class="ring"></span>`;
+      const press=(e)=>{e.preventDefault(); hit(m.id);};
+      b.addEventListener('pointerdown',press);
+      padsEl.appendChild(b); padMap[m.id]=b;
+    });
+    // spacer to keep 5 in a tidy grid (3 cols)
+  }
+  buildPads();
+
+  // ---- Game control ----
+  function newState(){
+    return {
+      score:0, combo:0, bestCombo:0, perfects:0, touches:0,
+      speedBoost:0,
+      bag:{x:charX,y:groundY-bodyH*0.5, vx:0, prevY:0},
+      target:null,          // current move object
+      t0:0, idealT:0,        // launch time & ideal contact time
+      from:null, to:null,    // contact points for arc
+      apex:0,
+      resolved:false,
+      particles:[],
+      limb:{m:null, t:0},    // limb animation
+    };
+  }
+
+  function startGame(){
+    resize(); state=newState();
+    startScreen.classList.add('hidden'); overScreen.classList.add('hidden');
+    running=true; updateHUD();
+    // first serve
+    const first=MOVES[0];
+    const serveFrom = view==='first' ? {x:charX, y:H*0.5} : {x:charX, y:groundY-bodyH*1.05};
+    launchTo(first, serveFrom, performance.now());
+    if(raf) cancelAnimationFrame(raf);
+    loop();
+  }
+
+  function launchTo(move, fromPt, now){
+    const d=DIFF[mode];
+    const travel=Math.max(360, d.travel - state.speedBoost);
+    const to=contactPoint(move);
+    state.target=move; state.from=fromPt; state.to=to;
+    state.t0=now; state.idealT=now+travel;
+    if(view==='first'){
+      // arc goes up-and-away toward the far horizon (small), then back toward you
+      state.apex={x:charX+(Math.random()-0.5)*W*0.12, y:horizonY()+H*0.03};
+    } else {
+      state.apex={x:(fromPt.x+to.x)/2, y:Math.min(fromPt.y,to.y)-H*0.18 - Math.random()*H*0.05};
+    }
+    state.resolved=false;
+    lightPad(move.id);
+  }
+
+  function lightPad(id){
+    for(const k in padMap) padMap[k].classList.toggle('lit', k===id);
+  }
+  function clearPads(){ for(const k in padMap) padMap[k].classList.remove('lit'); }
+
+  // bag position via two-segment parabola (from -> apex -> to)
+  function bagPos(now){
+    const p=Math.max(0,Math.min(1,(now-state.t0)/(state.idealT-state.t0)));
+    const {from,to,apex}=state;
+    // value passing through a (p=0), mid (p=0.5), b (p=1) as two fitted parabolas
+    const curve=(a,mid,b)=>{
+      const la=(a-mid)/0.25, lb=(b-mid)/0.25;
+      const left=mid+la*(p-0.5)*(p-0.5);
+      const right=mid+lb*(p-0.5)*(p-0.5);
+      return p<0.5?left:right;
+    };
+    const y=curve(from.y,apex.y,to.y);
+    const x=(view==='first') ? curve(from.x,apex.x,to.x) : from.x+(to.x-from.x)*p;
+    // depth scale: in first person the sack shrinks as it flies away, grows as it returns
+    const scale=(view==='first') ? 1-0.62*Math.sin(p*Math.PI) : 1;
+    return {x,y,p,scale};
+  }
+
+  function judge(deltaAbs){
+    const d=DIFF[mode];
+    if(deltaAbs<=d.perfect) return 'perfect';
+    if(deltaAbs<=d.good)    return 'good';
+    if(deltaAbs<=d.ok)      return 'ok';
+    return null;
+  }
+
+  function hit(id){
+    if(!running||!state.target||state.resolved) return;
+    const now=performance.now();
+    const delta=now-state.idealT;            // negative=early, positive=late
+    const q=judge(Math.abs(delta));
+    const correct=id===state.target.id;
+
+    if(correct && q){
+      state.resolved=true;
+      const pts={perfect:100, good:60, ok:30}[q];
+      const mult=1+Math.floor(state.combo/4)*0.5;
+      const gained=Math.round(pts*mult);
+      state.score+=gained; state.combo++; state.touches++;
+      if(state.combo>state.bestCombo) state.bestCombo=state.combo;
+      if(q==='perfect') state.perfects++;
+      state.speedBoost+=DIFF[mode].ramp;
+      showJudge(q, gained);
+      flashCombo();
+      burst(state.to.x,state.to.y, q);
+      state.limb={m:state.target, t:now};
+      // launch to next move
+      const next=pickNext();
+      // slight delay handled by launching from current contact immediately
+      launchTo(next, state.to, now);
+    } else {
+      // wrong button or bad timing
+      if(DIFF[mode].forgive){
+        state.combo=0; showJudge('miss',0); clearPads();
+        // give them another chance: re-light, keep bag aloft a touch
+        setTimeout(()=>{ if(running) lightPad(state.target.id); },120);
+      } else {
+        gameOver();
+      }
+    }
+  }
+
+  function pickNext(){
+    let n; do{ n=MOVES[(Math.random()*MOVES.length)|0]; }while(n.id===state.target.id);
+    return n;
+  }
+
+  function showJudge(q,pts){
+    const map={perfect:['PERFECT','var(--perfect)'],good:['GOOD','var(--good)'],ok:['OK','var(--accent)'],miss:['MISS','var(--miss)']};
+    const [txt,col]=map[q];
+    judgeEl.textContent= pts? `${txt}  +${pts}` : txt;
+    judgeEl.style.color=col;
+    judgeEl.style.transition='none'; judgeEl.style.opacity='1'; judgeEl.style.transform='translate(-50%,-50%) scale(1.15)';
+    requestAnimationFrame(()=>{ judgeEl.style.transition='all .5s ease-out';
+      judgeEl.style.opacity='0'; judgeEl.style.transform='translate(-50%,-72%) scale(.9)'; });
+  }
+  function flashCombo(){
+    if(state.combo<2){comboEl.style.opacity='0';return;}
+    comboEl.textContent=state.combo+'x';
+    comboEl.style.color = state.combo>=12?'var(--perfect)':state.combo>=6?'var(--accent)':'var(--good)';
+    comboEl.style.transition='none'; comboEl.style.opacity='.9'; comboEl.style.transform='translate(-50%,-50%) scale(1.25)';
+    requestAnimationFrame(()=>{ comboEl.style.transition='all .45s'; comboEl.style.opacity='0';
+      comboEl.style.transform='translate(-50%,-50%) scale(1)'; });
+    updateHUD();
+  }
+
+  function burst(x,y,q){
+    const n=q==='perfect'?22:q==='good'?14:8;
+    const col=q==='perfect'?'#5ad1ff':q==='good'?'#4dd07f':'#ffd84d';
+    for(let i=0;i<n;i++){
+      const a=Math.random()*Math.PI*2, sp=2+Math.random()*5;
+      state.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2,life:1,col});
+    }
+  }
+
+  function gameOver(){
+    running=false; clearPads();
+    if(raf) cancelAnimationFrame(raf);
+    const best=Math.max(state.score, +(localStorage.getItem('fb_best')||0));
+    try{localStorage.setItem('fb_best',best);}catch(e){}
+    document.getElementById('finalScore').textContent=state.score;
+    document.getElementById('bestCombo').textContent=state.bestCombo;
+    document.getElementById('perfectCount').textContent=state.perfects;
+    document.getElementById('touchCount').textContent=state.touches;
+    overScreen.classList.remove('hidden');
+  }
+
+  function updateHUD(){
+    scoreEl.textContent=state.score;
+    bestEl.textContent=Math.max(state.score,+(localStorage.getItem('fb_best')||0));
+  }
+
+  // ---- Render ----
+  function loop(){
+    raf=requestAnimationFrame(loop);
+    const now=performance.now();
+    ctx.clearRect(0,0,W,H);
+    drawScene();
+
+    // bag
+    const bp=bagPos(now);
+    state.bag.x=bp.x; state.bag.y=bp.y;
+
+    drawCharacter(now);
+    drawTimingRing(now);
+    drawBag(bp.x,bp.y,bp.scale);
+    drawParticles();
+
+    updateHUD();
+
+    // missed the window? (sack fell past contact without a hit)
+    if(!state.resolved && now>state.idealT + DIFF[mode].ok + 40){
+      if(DIFF[mode].forgive){
+        state.resolved=true; state.combo=0; showJudge('miss',0);
+        launchTo(pickNext(), state.to, now);
+      } else {
+        gameOver();
+      }
+    }
+  }
+
+  function drawScene(){ view==='first'?drawSceneFirst():drawSceneThird(); }
+
+  function drawSceneThird(){
+    // ground
+    const g=ctx.createLinearGradient(0,groundY,0,H);
+    g.addColorStop(0,'#27506a'); g.addColorStop(1,'#16323f');
+    ctx.fillStyle=g; ctx.fillRect(0,groundY,W,H-groundY);
+    ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(0,groundY); ctx.lineTo(W,groundY); ctx.stroke();
+    // shadow
+    ctx.fillStyle='rgba(0,0,0,.25)';
+    ctx.beginPath(); ctx.ellipse(charX,groundY+8,W*0.16,10,0,0,Math.PI*2); ctx.fill();
+  }
+
+  function drawSceneFirst(){
+    const hy=horizonY(), vx=charX;
+    const g=ctx.createLinearGradient(0,hy,0,H);
+    g.addColorStop(0,'#1c3a4e'); g.addColorStop(1,'#0c1e2a');
+    ctx.fillStyle=g; ctx.fillRect(0,hy,W,H-hy);
+    ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(0,hy); ctx.lineTo(W,hy); ctx.stroke();
+    // converging floor lines toward vanishing point
+    ctx.strokeStyle='rgba(120,200,255,.10)'; ctx.lineWidth=1;
+    for(let i=-7;i<=7;i++){
+      ctx.beginPath(); ctx.moveTo(vx+i*W*0.02,hy); ctx.lineTo(vx+i*W*0.22,H); ctx.stroke();
+    }
+    // receding horizontal lines (denser near horizon)
+    for(let i=1;i<=7;i++){
+      const t=i/7, y=hy+(H-hy)*(t*t);
+      ctx.globalAlpha=0.06+0.07*(1-t);
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawCharacter(now){ view==='first'?drawCharacterFirst(now):drawCharacterThird(now); }
+
+  function drawCharacterFirst(now){
+    const animActive=state.limb.m && (now-state.limb.t)<300;
+    const reach=animActive?Math.sin(Math.min(1,(now-state.limb.t)/300)*Math.PI):0;
+    const id=state.limb.m?state.limb.m.id:null;
+    const cx=charX;
+    ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+
+    const drawLeg=(baseX, active)=>{
+      let footX=baseX, footY=H*0.97, kneeX=baseX, kneeY=H*1.02;
+      if(active){
+        const cp=contactPoint(moveById(id));
+        footX=baseX+(cp.x-baseX)*reach;
+        footY=H*0.97+(cp.y-H*0.97)*reach;
+        kneeX=baseX+(cp.x-baseX)*reach*0.45;
+        kneeY=H*1.02+(cp.y-H*1.02)*reach*0.5;
+      }
+      ctx.strokeStyle='#3a5a72'; ctx.lineWidth=W*0.085;
+      ctx.beginPath(); ctx.moveTo(baseX,H*1.14); ctx.quadraticCurveTo(kneeX,kneeY,footX,footY); ctx.stroke();
+      // shoe
+      ctx.save(); ctx.translate(footX,footY);
+      ctx.fillStyle=active?'#ffd84d':'#eaf0f5';
+      ctx.beginPath(); ctx.ellipse(0,0,W*0.085,W*0.055,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#aeb9c2'; ctx.beginPath(); ctx.ellipse(0,W*0.035,W*0.085,W*0.02,0,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    };
+    drawLeg(cx-W*0.15, animActive&&(id==='inside'||id==='knee'));
+    drawLeg(cx+W*0.15, animActive&&(id==='outside'));
+
+    if(animActive && (id==='chest'||id==='head')){
+      const cp=contactPoint(moveById(id));
+      const hand=(dir)=>{
+        const baseX=cx+dir*W*0.30, baseY=H*1.10;
+        const hx=baseX+(cp.x+dir*W*0.06-baseX)*reach, hy=baseY+(cp.y-baseY)*reach;
+        ctx.strokeStyle='#caa07d'; ctx.lineWidth=W*0.055;
+        ctx.beginPath(); ctx.moveTo(baseX,H*1.14); ctx.quadraticCurveTo((baseX+hx)/2,(H*1.1+hy)/2,hx,hy); ctx.stroke();
+        ctx.fillStyle='#e6bd95'; ctx.beginPath(); ctx.arc(hx,hy,W*0.045,0,Math.PI*2); ctx.fill();
+      };
+      hand(-1); hand(1);
+    }
+    ctx.restore();
+  }
+
+  function drawCharacterThird(now){
+    const x=charX, gy=groundY;
+    const animActive=state.limb.m && (now-state.limb.t)<260;
+    const prog=animActive?(now-state.limb.t)/260:0;
+    const reach=animActive?Math.sin(prog*Math.PI):0;
+    const targetId=state.limb.m?state.limb.m.id:null;
+
+    ctx.lineWidth=Math.max(6,bodyH*0.05);
+    ctx.lineCap='round'; ctx.strokeStyle='#eaf2f8';
+
+    const hipY=gy-bodyH*0.42;
+    const shoulderY=gy-bodyH*0.78;
+    const headY=gy-bodyH*0.92;
+
+    // legs
+    const legK=(id,dir)=>{
+      const k=(animActive&&(targetId===id))?reach:0;
+      ctx.beginPath();
+      ctx.moveTo(x,hipY);
+      const kneeX=x+dir*bodyH*0.10, kneeY=hipY+bodyH*0.20-k*bodyH*0.12;
+      const footX=x+dir*bodyH*(0.12+k*0.30), footY=gy-k*bodyH*( id==='knee'?0.18:0.30 );
+      ctx.quadraticCurveTo(kneeX,kneeY,footX,footY);
+      ctx.stroke();
+    };
+    legK('inside',-1); legK('outside',1);
+    // knee move uses left leg raise
+    if(animActive&&targetId==='knee'){
+      ctx.beginPath(); ctx.moveTo(x,hipY);
+      ctx.quadraticCurveTo(x-bodyH*0.06,hipY-reach*bodyH*0.05, x-bodyH*0.02,hipY-reach*bodyH*0.16); ctx.stroke();
+    }
+
+    // torso
+    ctx.beginPath(); ctx.moveTo(x,hipY); ctx.lineTo(x,shoulderY); ctx.stroke();
+
+    // arms
+    const armK=(dir,raise)=>{
+      ctx.beginPath(); ctx.moveTo(x,shoulderY);
+      ctx.quadraticCurveTo(x+dir*bodyH*0.16,shoulderY+bodyH*0.05, x+dir*bodyH*0.14,shoulderY+bodyH*(0.18-raise*0.22));
+      ctx.stroke();
+    };
+    const armRaise=(animActive&&(targetId==='chest'||targetId==='head'))?reach:0;
+    armK(-1,armRaise); armK(1,armRaise);
+
+    // head
+    ctx.beginPath(); ctx.fillStyle='#eaf2f8';
+    ctx.arc(x,headY-bodyH*0.02,bodyH*0.07,0,Math.PI*2); ctx.fill();
+  }
+
+  function drawTimingRing(now){
+    if(state.resolved) return;
+    const c=state.to;
+    const d=DIFF[mode];
+    const total=state.idealT-state.t0;
+    const elapsed=now-state.t0;
+    const left=Math.max(0,(state.idealT-now)/total); // 1 -> 0 at ideal
+    const maxR=Math.min(W,H)*0.16;
+    const r=Math.max(state._bagR||14, 14+left*maxR);
+    // window color
+    const col = left<0.12?'#5ad1ff':'#ffd84d';
+    ctx.save();
+    ctx.strokeStyle=col; ctx.globalAlpha=0.9; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.arc(c.x,c.y,r,0,Math.PI*2); ctx.stroke();
+    // target dot
+    ctx.globalAlpha=0.5; ctx.setLineDash([4,6]);
+    ctx.beginPath(); ctx.arc(c.x,c.y,16,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBag(x,y,scale){
+    const r=14*(scale||1);
+    state._bagR=r;
+    // first-person ground shadow gives a sense of depth/height
+    if(view==='first'){
+      const sy=H*0.92, sw=Math.max(6, r*1.4);
+      ctx.save(); ctx.fillStyle='rgba(0,0,0,.28)';
+      ctx.beginPath(); ctx.ellipse(x, sy, sw, sw*0.32, 0, 0, Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    // body
+    ctx.save();
+    const grd=ctx.createRadialGradient(x-4,y-4,2,x,y,r);
+    grd.addColorStop(0,'#ffe9a3'); grd.addColorStop(1,'#d98a2b');
+    ctx.fillStyle=grd;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    // stitched panels
+    ctx.strokeStyle='rgba(90,40,0,.5)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(x-r,y); ctx.quadraticCurveTo(x,y-r*0.5,x+r,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x,y-r); ctx.quadraticCurveTo(x+r*0.5,y,x,y+r); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawParticles(){
+    const ps=state.particles;
+    for(let i=ps.length-1;i>=0;i--){
+      const p=ps[i];
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.25; p.life-=0.03;
+      if(p.life<=0){ps.splice(i,1);continue;}
+      ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.col;
+      ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  // ---- Input: keyboard for desktop testing ----
+  const keymap={'1':'inside','2':'outside','3':'knee','4':'chest','5':'head',
+                'a':'inside','s':'outside','d':'knee','f':'chest',' ':'head'};
+  window.addEventListener('keydown',e=>{
+    if(!running) return;
+    const id=keymap[e.key.toLowerCase()];
+    if(id){ e.preventDefault(); hit(id); }
+  });
+
+  // ---- UI wiring ----
+  document.getElementById('modeSel').addEventListener('click',e=>{
+    const m=e.target.closest('.mode'); if(!m) return;
+    mode=m.dataset.mode;
+    document.querySelectorAll('#modeSel .mode').forEach(x=>x.classList.toggle('on',x===m));
+  });
+  const viewBtn=document.getElementById('viewBtn');
+  function setView(v){
+    view=v;
+    viewBtn.textContent = v==='first' ? '👁️ 1st' : '🧍 3rd';
+    document.querySelectorAll('#viewSel .mode').forEach(x=>x.classList.toggle('on',x.dataset.view===v));
+    // if a rally is in flight, re-anchor the target/arc to the new view's coordinates
+    if(running && state && state.target){
+      state.to=contactPoint(state.target);
+      state.from=contactPoint(state.target);
+      state.apex = view==='first'
+        ? {x:charX+(Math.random()-0.5)*W*0.12, y:horizonY()+H*0.03}
+        : {x:charX, y:Math.min(state.to.y,state.from.y)-H*0.18};
+    }
+  }
+  document.getElementById('viewSel').addEventListener('click',e=>{
+    const m=e.target.closest('.mode'); if(!m) return; setView(m.dataset.view);
+  });
+  viewBtn.addEventListener('click',()=>setView(view==='first'?'third':'first'));
+  document.getElementById('startBtn').addEventListener('click',startGame);
+  document.getElementById('againBtn').addEventListener('click',startGame);
+
+  // boot
+  resize();
+  bestEl.textContent=+(localStorage.getItem('fb_best')||0);
+})();
+</script>
+</body>
+</html>
