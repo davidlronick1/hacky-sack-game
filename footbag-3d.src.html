@@ -169,8 +169,8 @@
   const soleMat=new T.MeshStandardMaterial({color:0x9aa6b0,roughness:0.8});
 
   // tiny waistband, kept low/back so it's just a sliver at the bottom (no chest blob)
-  const torso=new T.Mesh(new T.CylinderGeometry(0.16,0.135,0.5,18),shirt);
-  torso.position.set(0,1.12,-0.16); torso.rotation.x=0.18; torso.visible=false; scene.add(torso);
+  const torso=new T.Mesh(new T.CylinderGeometry(0.14,0.115,0.44,18),shirt);
+  torso.position.set(0,1.04,-0.34); torso.rotation.x=0.34; torso.visible=false; scene.add(torso);
 
   function makeLeg(sign){
     const hip=new T.Group(); hip.position.set(sign*0.12,0.9,-0.02);
@@ -398,7 +398,7 @@
       if(!state.resolved){
         ringMesh.visible=true; ringMesh.position.copy(state.to); ringMesh.quaternion.copy(camera.quaternion);
         const left=Math.max(0,(state.idealT-now)/(state.idealT-state.t0));
-        const s=0.6+left*3.2; ringMesh.scale.set(s,s,s);
+        const s=0.55+left*2.0; ringMesh.scale.set(s,s,s);
         ringMesh.material.color.set(left<0.13?0x5ad1ff:0xffd84d);
         ringMesh.material.opacity=0.5+0.45*(1-left);
       } else ringMesh.visible=false;
