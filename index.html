@@ -17,9 +17,9 @@
   .stat{background:rgba(0,0,0,.3);backdrop-filter:blur(6px);padding:6px 12px;border-radius:12px;}
   .stat b{color:var(--accent);font-size:20px;}
   .label{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;}
-  #combo{position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);font-size:46px;font-weight:800;opacity:0;
+  #combo{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);font-size:46px;font-weight:800;opacity:0;
     pointer-events:none;text-shadow:0 4px 18px rgba(0,0,0,.5);z-index:5;}
-  #judge{position:absolute;top:27%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:800;opacity:0;
+  #judge{position:absolute;top:23%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:800;opacity:0;
     pointer-events:none;letter-spacing:.04em;z-index:5;}
 
   #pads{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);gap:7px;
@@ -68,7 +68,7 @@
 
   <div class="screen hidden" id="startScreen">
     <h1>Foot<span class="em">bag</span> 3D</h1>
-    <div class="sub">First-person, through your own eyes. The sack arcs out in front of you — when a body part lights up, tap its button as the ring snaps shut. Your gaze follows the sack.</div>
+    <div class="sub">First-person, through your own eyes. Look down and you'll see your own body. When a body part lights up, tap its button as the ring snaps shut.</div>
     <div class="modes" id="modeSel">
       <div class="mode" data-mode="peaceful">🌿 Peaceful</div>
       <div class="mode on" data-mode="normal">⚡ Normal</div>
@@ -104,23 +104,21 @@
   "use strict";
   const T=window.THREE;
   const loadingEl=document.getElementById('loading');
-  if(!T){ loadingEl.textContent='Could not load 3D library (needs internet).'; return; }
+  if(!T){ loadingEl.textContent='Could not load 3D library.'; return; }
 
-  // ---------- DOM ----------
   const padsEl=document.getElementById('pads');
   const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
   const comboEl=document.getElementById('combo'), judgeEl=document.getElementById('judge');
   const startScreen=document.getElementById('startScreen'), overScreen=document.getElementById('overScreen');
 
-  // ---------- Moves: 3D contact points (metres) in front of the camera ----------
+  // ---------- Moves: 3D contact points (metres), placed where the limbs actually reach ----------
   const MOVES=[
-    {id:'inside', name:'Inside', emoji:'🦶', pos:new T.Vector3(-0.16,0.16,-0.42), leg:'L'},
-    {id:'outside',name:'Outside',emoji:'👟', pos:new T.Vector3( 0.22,0.13,-0.46), leg:'R'},
-    {id:'knee',   name:'Knee',   emoji:'🦵', pos:new T.Vector3(-0.06,0.60,-0.50), leg:'L'},
-    {id:'chest',  name:'Chest',  emoji:'🫷', pos:new T.Vector3( 0.00,1.18,-0.52), leg:null},
-    {id:'head',   name:'Head',   emoji:'🙆', pos:new T.Vector3( 0.00,1.62,-0.40), leg:null},
+    {id:'inside', name:'Inside', emoji:'🦶', pos:new T.Vector3(-0.17,0.20,-0.52)},
+    {id:'outside',name:'Outside',emoji:'👟', pos:new T.Vector3( 0.19,0.18,-0.55)},
+    {id:'knee',   name:'Knee',   emoji:'🦵', pos:new T.Vector3(-0.08,0.66,-0.55)},
+    {id:'chest',  name:'Chest',  emoji:'🫷', pos:new T.Vector3( 0.00,1.16,-0.55)},
+    {id:'head',   name:'Head',   emoji:'🙆', pos:new T.Vector3( 0.00,1.55,-0.45)},
   ];
-  const moveById=id=>MOVES.find(m=>m.id===id);
 
   const DIFF={
     peaceful:{travel:1600,perfect:175,good:300,ok:440,forgive:true, ramp:0},
@@ -129,174 +127,153 @@
   };
   let mode='normal';
 
-  // ---------- Three.js setup ----------
+  // ---------- renderer / scene / camera ----------
   const canvas=document.getElementById('gl');
   const renderer=new T.WebGLRenderer({canvas,antialias:true});
   renderer.setClearColor(0x0b1620,1);
+  renderer.outputEncoding=T.sRGBEncoding;
   const scene=new T.Scene();
-  scene.fog=new T.Fog(0x12263a,6,26);
+  scene.fog=new T.Fog(0x14283c,7,30);
 
-  const EYE=1.62; // eye height (m)
-  const camera=new T.PerspectiveCamera(72,1,0.01,100);
-  camera.position.set(0,EYE,0);
-  const restLook=new T.Vector3(0,0.55,-1.6);
+  const EYE=1.62;
+  const camera=new T.PerspectiveCamera(80,1,0.01,120);
+  camera.position.set(0,EYE,0.10);
+  // a comfortable downward gaze so you see your own body + the play area
+  const restLook=new T.Vector3(0,0.70,-1.5);
   camera.lookAt(restLook);
 
   // sky dome
   {
-    const geo=new T.SphereGeometry(40,24,16);
-    const mat=new T.ShaderMaterial({
-      side:T.BackSide,
-      uniforms:{top:{value:new T.Color(0x16314a)},bot:{value:new T.Color(0x0a141d)}},
+    const mat=new T.ShaderMaterial({side:T.BackSide,
+      uniforms:{top:{value:new T.Color(0x1b3a57)},bot:{value:new T.Color(0x0a141d)}},
       vertexShader:`varying float h;void main(){h=normalize(position).y;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-      fragmentShader:`varying float h;uniform vec3 top;uniform vec3 bot;void main(){gl_FragColor=vec4(mix(bot,top,clamp(h*0.5+0.5,0.0,1.0)),1.0);}`
-    });
-    scene.add(new T.Mesh(geo,mat));
+      fragmentShader:`varying float h;uniform vec3 top;uniform vec3 bot;void main(){gl_FragColor=vec4(mix(bot,top,clamp(h*0.6+0.4,0.0,1.0)),1.0);}`});
+    scene.add(new T.Mesh(new T.SphereGeometry(50,24,16),mat));
   }
 
   // lights
-  scene.add(new T.HemisphereLight(0xddeeff,0x33506a,1.0));
-  const dir=new T.DirectionalLight(0xffffff,0.7); dir.position.set(3,8,2); scene.add(dir);
+  scene.add(new T.HemisphereLight(0xdfeeff,0x2c465c,1.05));
+  const key=new T.DirectionalLight(0xffffff,0.85); key.position.set(2,6,3); scene.add(key);
+  const rim=new T.DirectionalLight(0x9fd0ff,0.35); rim.position.set(-3,2,-4); scene.add(rim);
 
-  // ground + court
+  // ground + grid + court circle
+  const ground=new T.Mesh(new T.PlaneGeometry(80,80),
+    new T.MeshStandardMaterial({color:0x1d3344,roughness:1,metalness:0}));
+  ground.rotation.x=-Math.PI/2; scene.add(ground);
+  const grid=new T.GridHelper(80,80,0x3f7aa0,0x21384a);
+  grid.material.opacity=0.35; grid.material.transparent=true; scene.add(grid);
   {
-    const ground=new T.Mesh(new T.PlaneGeometry(60,60),
-      new T.MeshStandardMaterial({color:0x1c3344,roughness:1,metalness:0}));
-    ground.rotation.x=-Math.PI/2; scene.add(ground);
-  }
-  const grid=new T.GridHelper(60,60,0x4a86b0,0x274055);
-  grid.material.opacity=0.5; grid.material.transparent=true; scene.add(grid);
-  // playing circle
-  {
-    const ring=new T.Mesh(new T.RingGeometry(1.7,1.78,48),
-      new T.MeshBasicMaterial({color:0x4a86b0,transparent:true,opacity:0.5,side:T.DoubleSide}));
+    const ring=new T.Mesh(new T.RingGeometry(1.5,1.57,56),
+      new T.MeshBasicMaterial({color:0x57a0cc,transparent:true,opacity:0.45,side:T.DoubleSide}));
     ring.rotation.x=-Math.PI/2; ring.position.y=0.01; scene.add(ring);
   }
 
-  // ---------- player body (own legs / arms, seen from the eyes) ----------
-  const skin=new T.MeshStandardMaterial({color:0xe8b48a,roughness:0.8});
-  const pants=new T.MeshStandardMaterial({color:0x2f4f66,roughness:0.9});
-  const shoeMat=new T.MeshStandardMaterial({color:0xeef3f7,roughness:0.6});
+  // ---------- first-person body (own torso / legs / arms) ----------
+  const shirt=new T.MeshStandardMaterial({color:0x3d7ea6,roughness:0.75});
+  const pants=new T.MeshStandardMaterial({color:0x2b3f54,roughness:0.9});
+  const skin =new T.MeshStandardMaterial({color:0xe7b48a,roughness:0.8});
+  const shoeMat=new T.MeshStandardMaterial({color:0xf2f5f8,roughness:0.5});
+  const soleMat=new T.MeshStandardMaterial({color:0x9aa6b0,roughness:0.8});
+
+  // torso you see when looking down (chest -> waist), tilted slightly forward
+  const torso=new T.Mesh(new T.CylinderGeometry(0.17,0.135,0.60,18),shirt);
+  torso.position.set(0,1.18,-0.05); torso.rotation.x=0.12; scene.add(torso);
 
   function makeLeg(sign){
-    const hip=new T.Group();
-    hip.position.set(sign*0.13,0.92,-0.02);
-    // thigh
-    const thigh=new T.Mesh(new T.CylinderGeometry(0.075,0.065,0.46,12),pants);
+    const hip=new T.Group(); hip.position.set(sign*0.105,0.92,-0.02);
+    hip.rotation.x=0.95;                       // thigh angles down & forward
+    const thigh=new T.Mesh(new T.CylinderGeometry(0.085,0.07,0.46,14),pants);
     thigh.position.set(0,-0.23,0); hip.add(thigh);
-    // shin pivot
-    const knee=new T.Group(); knee.position.set(0,-0.46,0); hip.add(knee);
-    const shin=new T.Mesh(new T.CylinderGeometry(0.06,0.05,0.46,12),pants);
-    shin.position.set(0,-0.23,0); knee.add(shin);
-    const shoe=new T.Mesh(new T.BoxGeometry(0.11,0.07,0.22),shoeMat);
-    shoe.position.set(0,-0.47,0.06); knee.add(shoe);
-    hip.userData={knee,shoe};
-    scene.add(hip);
+    const knee=new T.Group(); knee.position.set(0,-0.46,0); knee.rotation.x=-0.78; hip.add(knee); // shin ~vertical
+    const shin=new T.Mesh(new T.CylinderGeometry(0.065,0.052,0.50,14),pants);
+    shin.position.set(0,-0.25,0); knee.add(shin);
+    const ankle=new T.Group(); ankle.position.set(0,-0.50,0); knee.add(ankle);
+    const shoe=new T.Mesh(new T.BoxGeometry(0.12,0.075,0.26),shoeMat);
+    shoe.position.set(0,-0.02,-0.06); ankle.add(shoe);
+    const sole=new T.Mesh(new T.BoxGeometry(0.125,0.03,0.265),soleMat);
+    sole.position.set(0,-0.055,-0.06); ankle.add(sole);
+    hip.userData={knee}; scene.add(hip);
     return hip;
   }
   const legL=makeLeg(-1), legR=makeLeg(1);
 
   function makeArm(sign){
-    const sh=new T.Group();
-    sh.position.set(sign*0.22,1.42,-0.04);
-    const upper=new T.Mesh(new T.CylinderGeometry(0.05,0.045,0.30,10),skin);
+    const sh=new T.Group(); sh.position.set(sign*0.185,1.42,-0.02);
+    sh.rotation.x=0.55;                        // arms rest down & a bit forward
+    const upper=new T.Mesh(new T.CylinderGeometry(0.052,0.045,0.30,12),shirt);
     upper.position.set(0,-0.15,0); sh.add(upper);
-    const elbow=new T.Group(); elbow.position.set(0,-0.30,0); sh.add(elbow);
-    const fore=new T.Mesh(new T.CylinderGeometry(0.045,0.04,0.30,10),skin);
-    fore.position.set(0,-0.15,0); elbow.add(fore);
-    const hand=new T.Mesh(new T.SphereGeometry(0.055,12,10),skin);
-    hand.position.set(0,-0.31,0); elbow.add(hand);
-    sh.userData={elbow};
-    sh.rotation.x=0.15; // rest slightly forward, mostly out of view
-    scene.add(sh);
+    const elbow=new T.Group(); elbow.position.set(0,-0.30,0); elbow.rotation.x=0.2; sh.add(elbow);
+    const fore=new T.Mesh(new T.CylinderGeometry(0.045,0.038,0.28,12),skin);
+    fore.position.set(0,-0.14,0); elbow.add(fore);
+    const hand=new T.Mesh(new T.SphereGeometry(0.052,12,10),skin);
+    hand.position.set(0,-0.30,0); elbow.add(hand);
+    sh.userData={elbow}; scene.add(sh);
     return sh;
   }
   const armL=makeArm(-1), armR=makeArm(1);
 
+  // rest pose snapshot (so animation returns smoothly)
+  const REST={legHipX:0.95, kneeX:-0.78, armShX:0.55, armElX:0.2};
+
   // ---------- footbag ----------
   const bag=new T.Group();
   {
-    const core=new T.Mesh(new T.SphereGeometry(0.062,18,14),
-      new T.MeshStandardMaterial({color:0xf0a23a,roughness:0.7}));
+    const core=new T.Mesh(new T.SphereGeometry(0.060,20,16),
+      new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.65}));
     bag.add(core);
-    // a few darker panels for a stitched look
-    const panelMat=new T.MeshStandardMaterial({color:0xc9701f,roughness:0.7});
+    const pm=new T.MeshStandardMaterial({color:0xca6f1e,roughness:0.7});
     for(let i=0;i<6;i++){
-      const p=new T.Mesh(new T.SphereGeometry(0.063,8,6,i*1.05,0.6,0.4,1.4),panelMat);
-      bag.add(p);
+      const p=new T.Mesh(new T.SphereGeometry(0.061,8,6,i*1.05,0.62,0.4,1.4),pm); bag.add(p);
     }
   }
-  scene.add(bag);
-  bag.position.copy(MOVES[0].pos);
-  // soft shadow blob under bag
-  const blob=new T.Mesh(new T.CircleGeometry(0.09,20),
+  scene.add(bag); bag.position.copy(MOVES[0].pos);
+  const blob=new T.Mesh(new T.CircleGeometry(0.085,22),
     new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.3}));
-  blob.rotation.x=-Math.PI/2; blob.position.y=0.011; scene.add(blob);
+  blob.rotation.x=-Math.PI/2; blob.position.y=0.012; scene.add(blob);
 
-  // ---------- timing ring (billboard, shrinks toward the contact) ----------
+  // ---------- timing ring (billboard) ----------
   const ringMesh=new T.Mesh(new T.RingGeometry(0.085,0.11,40),
     new T.MeshBasicMaterial({color:0xffd84d,transparent:true,opacity:0.95,side:T.DoubleSide}));
   scene.add(ringMesh);
 
   // ---------- particles ----------
-  const sparkGeo=new T.BufferGeometry();
-  const SPARKS=120;
-  const sparkPos=new Float32Array(SPARKS*3);
+  const SPARKS=140, sparkGeo=new T.BufferGeometry(), sparkPos=new Float32Array(SPARKS*3);
   sparkGeo.setAttribute('position',new T.BufferAttribute(sparkPos,3));
   const sparkMat=new T.PointsMaterial({color:0xffe9a3,size:0.05,transparent:true,opacity:0.95});
-  const sparks=new T.Points(sparkGeo,sparkMat); scene.add(sparks);
+  scene.add(new T.Points(sparkGeo,sparkMat));
   const sparkData=[]; for(let i=0;i<SPARKS;i++) sparkData.push({life:0,v:new T.Vector3(),p:new T.Vector3()});
   function burst(at,q){
-    const n=q==='perfect'?40:q==='good'?26:16;
+    const n=q==='perfect'?44:q==='good'?28:16;
     sparkMat.color.set(q==='perfect'?0x5ad1ff:q==='good'?0x4dd07f:0xffd84d);
     let made=0;
-    for(let i=0;i<SPARKS && made<n;i++){
-      const s=sparkData[i]; if(s.life>0) continue;
-      s.life=1; s.p.copy(at);
-      s.v.set((Math.random()-0.5)*2.4,Math.random()*2.2+0.4,(Math.random()-0.5)*2.4);
-      made++;
-    }
+    for(let i=0;i<SPARKS&&made<n;i++){const s=sparkData[i];if(s.life>0)continue;
+      s.life=1;s.p.copy(at);s.v.set((Math.random()-0.5)*2.6,Math.random()*2.4+0.5,(Math.random()-0.5)*2.6);made++;}
   }
 
-  // ---------- build pads ----------
+  // ---------- pads ----------
   const padMap={};
-  MOVES.forEach(m=>{
-    const b=document.createElement('div');
-    b.className='pad'; b.dataset.id=m.id;
+  MOVES.forEach(m=>{const b=document.createElement('div');b.className='pad';b.dataset.id=m.id;
     b.innerHTML=`<span class="emoji">${m.emoji}</span>${m.name}`;
     b.addEventListener('pointerdown',e=>{e.preventDefault();hit(m.id);});
-    padsEl.appendChild(b); padMap[m.id]=b;
-  });
+    padsEl.appendChild(b);padMap[m.id]=b;});
   const lightPad=id=>{for(const k in padMap)padMap[k].classList.toggle('lit',k===id);};
   const clearPads=()=>{for(const k in padMap)padMap[k].classList.remove('lit');};
 
-  // ---------- game state ----------
+  // ---------- state ----------
   let running=false, state=null;
   const clock=new T.Clock();
-
-  function newState(){
-    return {score:0,combo:0,bestCombo:0,perfects:0,touches:0,speedBoost:0,
-      target:null,from:new T.Vector3(),to:new T.Vector3(),apex:new T.Vector3(),
-      t0:0,idealT:0,resolved:false,
-      limb:{id:null,t:0}, gaze:new T.Vector3().copy(restLook)};
-  }
+  function newState(){return {score:0,combo:0,bestCombo:0,perfects:0,touches:0,speedBoost:0,
+    target:null,from:new T.Vector3(),to:new T.Vector3(),apex:new T.Vector3(),
+    t0:0,idealT:0,resolved:false,limb:{id:null,t:0},gaze:new T.Vector3().copy(restLook)};}
 
   function launchTo(move,fromPt,now){
-    const d=DIFF[mode];
-    const travel=Math.max(380,d.travel-state.speedBoost);
+    const travel=Math.max(380,DIFF[mode].travel-state.speedBoost);
     state.target=move; state.from.copy(fromPt); state.to.copy(move.pos);
     state.t0=now; state.idealT=now+travel;
-    // apex: high and far (toward the horizon) so perspective shrinks it naturally
-    state.apex.set((Math.random()-0.5)*0.5, 2.5+Math.random()*0.4, -2.0-Math.random()*0.6);
-    state.resolved=false;
-    lightPad(move.id);
+    state.apex.set((Math.random()-0.5)*0.5, 2.4+Math.random()*0.4, -2.1-Math.random()*0.6);
+    state.resolved=false; lightPad(move.id);
   }
-
-  // value through a(p=0), mid(p=.5), b(p=1)
-  function seg(a,mid,b,p){
-    const la=(a-mid)/0.25, lb=(b-mid)/0.25;
-    return p<0.5? mid+la*(p-0.5)*(p-0.5) : mid+lb*(p-0.5)*(p-0.5);
-  }
+  function seg(a,mid,b,p){const la=(a-mid)/0.25,lb=(b-mid)/0.25;return p<0.5?mid+la*(p-0.5)*(p-0.5):mid+lb*(p-0.5)*(p-0.5);}
   const _bp=new T.Vector3();
   function bagPos(now){
     const p=Math.max(0,Math.min(1,(now-state.t0)/(state.idealT-state.t0)));
@@ -305,36 +282,34 @@
             seg(state.from.z,state.apex.z,state.to.z,p));
     return {pos:_bp,p};
   }
-
   function judge(da){const d=DIFF[mode];return da<=d.perfect?'perfect':da<=d.good?'good':da<=d.ok?'ok':null;}
 
   function hit(id){
     if(!running||!state.target||state.resolved)return;
-    const now=performance.now();
-    const q=judge(Math.abs(now-state.idealT));
-    if(id===state.target.id && q){
+    const now=performance.now(); const q=judge(Math.abs(now-state.idealT));
+    if(id===state.target.id&&q){
       state.resolved=true;
       const pts={perfect:100,good:60,ok:30}[q];
       const mult=1+Math.floor(state.combo/4)*0.5;
       const gained=Math.round(pts*mult);
-      state.score+=gained; state.combo++; state.touches++;
+      state.score+=gained;state.combo++;state.touches++;
       if(state.combo>state.bestCombo)state.bestCombo=state.combo;
       if(q==='perfect')state.perfects++;
       state.speedBoost+=DIFF[mode].ramp;
-      showJudge(q,gained); flashCombo(); burst(state.to,q);
+      showJudge(q,gained);flashCombo();burst(state.to,q);
       state.limb={id:state.target.id,t:now};
       launchTo(pickNext(),state.to,now);
     }else{
-      if(DIFF[mode].forgive){ state.combo=0; showJudge('miss',0); clearPads();
-        setTimeout(()=>{if(running)lightPad(state.target.id);},120);
-      }else gameOver();
+      if(DIFF[mode].forgive){state.combo=0;showJudge('miss',0);clearPads();
+        setTimeout(()=>{if(running)lightPad(state.target.id);},120);}
+      else gameOver();
     }
   }
   function pickNext(){let n;do{n=MOVES[(Math.random()*MOVES.length)|0];}while(n.id===state.target.id);return n;}
 
   function showJudge(q,pts){
     const map={perfect:['PERFECT','var(--perfect)'],good:['GOOD','var(--good)'],ok:['OK','var(--accent)'],miss:['MISS','var(--miss)']};
-    const [txt,col]=map[q]; judgeEl.textContent=pts?`${txt}  +${pts}`:txt; judgeEl.style.color=col;
+    const[txt,col]=map[q];judgeEl.textContent=pts?`${txt}  +${pts}`:txt;judgeEl.style.color=col;
     judgeEl.style.transition='none';judgeEl.style.opacity='1';judgeEl.style.transform='translate(-50%,-50%) scale(1.15)';
     requestAnimationFrame(()=>{judgeEl.style.transition='all .5s ease-out';judgeEl.style.opacity='0';
       judgeEl.style.transform='translate(-50%,-70%) scale(.9)';});
@@ -347,9 +322,8 @@
     requestAnimationFrame(()=>{comboEl.style.transition='all .45s';comboEl.style.opacity='0';
       comboEl.style.transform='translate(-50%,-50%) scale(1)';});
   }
-
   function gameOver(){
-    running=false; clearPads();
+    running=false;clearPads();
     const best=Math.max(state.score,+(localStorage.getItem('fb3d_best')||0));
     try{localStorage.setItem('fb3d_best',best);}catch(e){}
     document.getElementById('finalScore').textContent=state.score;
@@ -358,92 +332,80 @@
     document.getElementById('touchCount').textContent=state.touches;
     overScreen.classList.remove('hidden');
   }
+  function updateHUD(){scoreEl.textContent=state?state.score:0;
+    bestEl.textContent=Math.max(state?state.score:0,+(localStorage.getItem('fb3d_best')||0));}
 
-  function updateHUD(){
-    scoreEl.textContent=state?state.score:0;
-    bestEl.textContent=Math.max(state?state.score:0,+(localStorage.getItem('fb3d_best')||0));
+  // ---------- limb animation ----------
+  function setRest(){
+    legL.rotation.x=REST.legHipX; legR.rotation.x=REST.legHipX; legL.rotation.z=0; legR.rotation.z=0;
+    legL.userData.knee.rotation.x=REST.kneeX; legR.userData.knee.rotation.x=REST.kneeX;
+    armL.rotation.x=REST.armShX; armR.rotation.x=REST.armShX; armL.rotation.z=0; armR.rotation.z=0;
+    armL.userData.elbow.rotation.x=REST.armElX; armR.userData.elbow.rotation.x=REST.armElX;
   }
-
-  // ---------- limb animation helpers ----------
   function animLimbs(now){
-    // reset to rest
-    legL.rotation.set(0,0,0); legR.rotation.set(0,0,0);
-    legL.userData.knee.rotation.set(0,0,0); legR.userData.knee.rotation.set(0,0,0);
-    armL.rotation.x=0.15; armR.rotation.x=0.15;
-    armL.userData.elbow.rotation.set(0,0,0); armR.userData.elbow.rotation.set(0,0,0);
-    if(!state||!state.limb.id) return;
-    const dt=now-state.limb.t; if(dt>320) return;
-    const k=Math.sin(Math.min(1,dt/320)*Math.PI);
-    const id=state.limb.id;
-    if(id==='inside'||id==='knee'){
-      legL.rotation.x=-k*(id==='knee'?1.4:0.95);
-      legL.userData.knee.rotation.x=k*(id==='knee'?1.0:0.5);
-    }else if(id==='outside'){
-      legR.rotation.x=-k*0.95; legR.rotation.z=-k*0.25;
-      legR.userData.knee.rotation.x=k*0.5;
-    }else if(id==='chest'||id==='head'){
-      const a=id==='head'?1.5:1.1;
-      armL.rotation.x=0.15-k*a; armR.rotation.x=0.15-k*a;
-      armL.userData.elbow.rotation.x=-k*0.6; armR.userData.elbow.rotation.x=-k*0.6;
-    }
+    setRest();
+    if(!state||!state.limb.id)return;
+    const dt=now-state.limb.t; if(dt>360)return;
+    const k=Math.sin(Math.min(1,dt/360)*Math.PI), id=state.limb.id;
+    if(id==='inside'){ legL.rotation.x=REST.legHipX-k*1.15; legL.rotation.z=k*0.30;
+      legL.userData.knee.rotation.x=REST.kneeX+k*0.85; }
+    else if(id==='outside'){ legR.rotation.x=REST.legHipX-k*1.15; legR.rotation.z=-k*0.30;
+      legR.userData.knee.rotation.x=REST.kneeX+k*0.85; }
+    else if(id==='knee'){ legL.rotation.x=REST.legHipX-k*1.55;
+      legL.userData.knee.rotation.x=REST.kneeX+k*0.45; }
+    else if(id==='chest'){ armL.rotation.x=REST.armShX-k*1.25; armR.rotation.x=REST.armShX-k*1.25;
+      armL.userData.elbow.rotation.x=REST.armElX+k*0.5; armR.userData.elbow.rotation.x=REST.armElX+k*0.5; }
+    else if(id==='head'){ armL.rotation.x=REST.armShX-k*1.6; armR.rotation.x=REST.armShX-k*1.6; }
   }
+  setRest();
 
-  // ---------- main loop ----------
+  // ---------- loop ----------
   const tmpV=new T.Vector3();
   function animate(){
     requestAnimationFrame(animate);
-    const now=performance.now(), dt=clock.getDelta(), t=clock.elapsedTime;
+    const now=performance.now(), dt=Math.min(0.05,clock.getDelta()), t=clock.elapsedTime;
 
-    // idle head sway = "real eyes"
-    camera.position.x=Math.sin(t*1.1)*0.012;
-    camera.position.y=EYE+Math.sin(t*2.0)*0.012;
+    // very subtle, stable head motion
+    camera.position.x=Math.sin(t*0.9)*0.006;
+    camera.position.y=EYE+Math.sin(t*1.8)*0.006;
 
-    if(running && state){
-      const {pos,p}=bagPos(now);
-      bag.position.copy(pos);
-      bag.rotation.x+=dt*4; bag.rotation.y+=dt*3;
-      blob.position.set(pos.x,0.011,pos.z);
-      const sh=Math.max(0.03,0.11-pos.y*0.02); blob.scale.set(sh*7,sh*7,1); blob.material.opacity=Math.max(0.05,0.32-pos.y*0.08);
+    if(running&&state){
+      const {pos}=bagPos(now);
+      bag.position.copy(pos); bag.rotation.x+=dt*4; bag.rotation.y+=dt*3;
+      blob.position.set(pos.x,0.012,pos.z);
+      const bs=Math.max(0.4,1.1-pos.y*0.18); blob.scale.set(bs,bs,1);
+      blob.material.opacity=Math.max(0.05,0.3-pos.y*0.07);
 
-      // gaze follows the sack (eyes track it), blended with a forward rest gaze
-      tmpV.copy(restLook).lerp(pos,0.55);
-      state.gaze.lerp(tmpV,1-Math.pow(0.0001,dt));
+      // gaze: mostly fixed forward-down, glances gently toward the sack
+      tmpV.copy(restLook).lerp(pos,0.16);
+      state.gaze.lerp(tmpV,1-Math.pow(0.002,dt));
       camera.lookAt(state.gaze);
 
-      // timing ring at the contact, shrinking as the ideal moment nears
       if(!state.resolved){
-        ringMesh.visible=true;
-        ringMesh.position.copy(state.to);
-        ringMesh.quaternion.copy(camera.quaternion);
+        ringMesh.visible=true; ringMesh.position.copy(state.to); ringMesh.quaternion.copy(camera.quaternion);
         const left=Math.max(0,(state.idealT-now)/(state.idealT-state.t0));
-        const s=0.6+left*3.4; ringMesh.scale.set(s,s,s);
+        const s=0.6+left*3.2; ringMesh.scale.set(s,s,s);
         ringMesh.material.color.set(left<0.13?0x5ad1ff:0xffd84d);
         ringMesh.material.opacity=0.5+0.45*(1-left);
-      }else ringMesh.visible=false;
+      } else ringMesh.visible=false;
 
       animLimbs(now);
 
-      // missed window?
-      if(!state.resolved && now>state.idealT+DIFF[mode].ok+45){
+      if(!state.resolved&&now>state.idealT+DIFF[mode].ok+45){
         if(DIFF[mode].forgive){state.resolved=true;state.combo=0;showJudge('miss',0);launchTo(pickNext(),state.to,now);}
         else gameOver();
       }
       updateHUD();
     }else{
-      ringMesh.visible=false;
-      camera.lookAt(restLook);
+      ringMesh.visible=false; camera.lookAt(restLook); setRest();
     }
 
-    // particles
     let any=false;
-    for(let i=0;i<SPARKS;i++){
-      const s=sparkData[i];
-      if(s.life>0){ s.life-=dt*1.4; s.v.y-=4.5*dt; s.p.addScaledVector(s.v,dt);
-        sparkPos[i*3]=s.p.x; sparkPos[i*3+1]=Math.max(0,s.p.y); sparkPos[i*3+2]=s.p.z; any=true;
-      }else{ sparkPos[i*3]=0; sparkPos[i*3+1]=-100; sparkPos[i*3+2]=0; }
-    }
-    if(any) sparkGeo.attributes.position.needsUpdate=true;
-    sparkMat.opacity=0.95;
+    for(let i=0;i<SPARKS;i++){const s=sparkData[i];
+      if(s.life>0){s.life-=dt*1.4;s.v.y-=4.5*dt;s.p.addScaledVector(s.v,dt);
+        sparkPos[i*3]=s.p.x;sparkPos[i*3+1]=Math.max(0,s.p.y);sparkPos[i*3+2]=s.p.z;any=true;}
+      else{sparkPos[i*3+1]=-100;}}
+    if(any)sparkGeo.attributes.position.needsUpdate=true;
 
     renderer.render(scene,camera);
   }
@@ -451,32 +413,23 @@
   // ---------- controls ----------
   function startGame(){
     state=newState();
-    startScreen.classList.add('hidden'); overScreen.classList.add('hidden');
-    running=true; updateHUD();
-    const first=MOVES[0];
-    launchTo(first,new T.Vector3(0,1.0,-0.5),performance.now());
+    startScreen.classList.add('hidden');overScreen.classList.add('hidden');
+    running=true;updateHUD();
+    launchTo(MOVES[0],new T.Vector3(0,1.0,-0.6),performance.now());
   }
-  document.getElementById('modeSel').addEventListener('click',e=>{
-    const m=e.target.closest('.mode'); if(!m)return; mode=m.dataset.mode;
-    document.querySelectorAll('#modeSel .mode').forEach(x=>x.classList.toggle('on',x===m));
-  });
+  document.getElementById('modeSel').addEventListener('click',e=>{const m=e.target.closest('.mode');if(!m)return;
+    mode=m.dataset.mode;document.querySelectorAll('#modeSel .mode').forEach(x=>x.classList.toggle('on',x===m));});
   document.getElementById('startBtn').addEventListener('click',startGame);
   document.getElementById('againBtn').addEventListener('click',startGame);
-  const keymap={'1':'inside','2':'outside','3':'knee','4':'chest','5':'head',
-    a:'inside',s:'outside',d:'knee',f:'chest',' ':'head'};
-  window.addEventListener('keydown',e=>{ if(!running)return; const id=keymap[e.key.toLowerCase()];
-    if(id){e.preventDefault();hit(id);} });
+  const keymap={'1':'inside','2':'outside','3':'knee','4':'chest','5':'head',a:'inside',s:'outside',d:'knee',f:'chest',' ':'head'};
+  window.addEventListener('keydown',e=>{if(!running)return;const id=keymap[e.key.toLowerCase()];if(id){e.preventDefault();hit(id);}});
 
-  // ---------- resize ----------
-  function resize(){
-    const w=window.innerWidth,h=window.innerHeight;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-    renderer.setSize(w,h,false);
-    camera.aspect=w/h; camera.updateProjectionMatrix();
-  }
-  window.addEventListener('resize',resize); resize();
+  // ---------- resize / boot ----------
+  function resize(){const w=window.innerWidth,h=window.innerHeight;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(w,h,false);
+    camera.aspect=w/h;camera.updateProjectionMatrix();}
+  window.addEventListener('resize',resize);resize();
 
-  // ---------- boot ----------
   bestEl.textContent=+(localStorage.getItem('fb3d_best')||0);
   loadingEl.style.display='none';
   startScreen.classList.remove('hidden');
