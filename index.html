@@ -175,16 +175,16 @@
   const shoeMat=new T.MeshStandardMaterial({color:0xf2f5f8,roughness:0.5});
   const soleMat=new T.MeshStandardMaterial({color:0x9aa6b0,roughness:0.8});
 
-  // small waist/lap sliver at the very bottom of view (avoids a big chest blob)
-  const torso=new T.Mesh(new T.CylinderGeometry(0.15,0.13,0.34,18),shirt);
-  torso.position.set(0,0.98,-0.12); torso.rotation.x=0.30; scene.add(torso);
+  // tiny waistband, kept low/back so it's just a sliver at the bottom (no chest blob)
+  const torso=new T.Mesh(new T.CylinderGeometry(0.135,0.12,0.24,18),shirt);
+  torso.position.set(0,0.92,-0.04); torso.rotation.x=0.25; scene.add(torso);
 
   function makeLeg(sign){
-    const hip=new T.Group(); hip.position.set(sign*0.11,0.9,-0.06);
-    hip.rotation.x=1.18;                        // thigh angles down & forward
+    const hip=new T.Group(); hip.position.set(sign*0.12,0.9,-0.02);
+    hip.rotation.x=1.12;                        // thigh angles down & forward
     const thigh=new T.Mesh(new T.CylinderGeometry(0.085,0.07,0.46,14),pants);
     thigh.position.set(0,-0.23,0); hip.add(thigh);
-    const knee=new T.Group(); knee.position.set(0,-0.46,0); knee.rotation.x=-1.00; hip.add(knee); // shin ~vertical
+    const knee=new T.Group(); knee.position.set(0,-0.46,0); knee.rotation.x=-0.94; hip.add(knee); // shin ~vertical
     const shin=new T.Mesh(new T.CylinderGeometry(0.065,0.052,0.50,14),pants);
     shin.position.set(0,-0.25,0); knee.add(shin);
     const ankle=new T.Group(); ankle.position.set(0,-0.50,0); knee.add(ankle);
@@ -198,8 +198,8 @@
   const legL=makeLeg(-1), legR=makeLeg(1);
 
   function makeArm(sign){
-    const sh=new T.Group(); sh.position.set(sign*0.17,1.4,-0.14);
-    sh.rotation.x=0.65;                         // arms rest down & forward
+    const sh=new T.Group(); sh.position.set(sign*0.2,1.42,0.16);  // behind the eye-line
+    sh.rotation.x=0.12;                         // hang straight down, out of view at rest
     const upper=new T.Mesh(new T.CylinderGeometry(0.052,0.045,0.30,12),shirt);
     upper.position.set(0,-0.15,0); sh.add(upper);
     const elbow=new T.Group(); elbow.position.set(0,-0.30,0); elbow.rotation.x=0.25; sh.add(elbow);
@@ -212,7 +212,7 @@
   }
   const armL=makeArm(-1), armR=makeArm(1);
 
-  const REST={legHipX:1.18, kneeX:-1.00, armShX:0.65, armElX:0.25};
+  const REST={legHipX:1.12, kneeX:-0.94, armShX:0.12, armElX:0.18};
 
   // ---------- footbag ----------
   const bag=new T.Group();
