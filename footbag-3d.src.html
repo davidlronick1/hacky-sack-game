@@ -50,6 +50,12 @@
   .modes{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;justify-content:center;}
   .mode{background:var(--panel);border:2px solid rgba(255,255,255,.1);color:var(--ink);padding:10px 16px;border-radius:14px;
     font-weight:700;font-size:13px;cursor:pointer;} .mode.on{border-color:var(--accent);background:#26415a;}
+  .ghost{margin-top:12px;background:transparent;border:1px solid rgba(255,255,255,.25);color:var(--ink);font-weight:700;
+    font-size:14px;padding:10px 22px;border-radius:24px;cursor:pointer;} .ghost:active{transform:scale(.96);}
+  .cugroup{margin-bottom:20px;} .culabel{font-size:12px;text-transform:uppercase;letter-spacing:.08em;opacity:.7;margin-bottom:10px;}
+  .swatches{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+  .swatch{width:44px;height:44px;border-radius:50%;cursor:pointer;border:3px solid rgba(255,255,255,.15);transition:transform .08s;}
+  .swatch:hover{transform:scale(1.08);} .swatch.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent);}
   .big{font-size:58px;font-weight:800;color:var(--accent);margin:6px 0;}
   .row{display:flex;gap:26px;margin-bottom:18px;} .row .num{font-size:24px;font-weight:800;}
   .tip{font-size:12px;opacity:.6;margin-top:16px;max-width:300px;line-height:1.5;}
@@ -83,7 +89,15 @@
       <div class="mode" data-mode="pro">🔥 Pro</div>
     </div>
     <button class="cta" id="startBtn">Play</button>
-    <div class="tip">Desktop: keys 1–7. Tap right as the ring meets the sack for a <b style="color:var(--perfect)">Perfect</b>. Neck/Back are high-loft stalls.</div>
+    <button class="ghost" id="customBtn">🎨 Customize</button>
+    <div class="tip">Desktop: keys 1–7. Tap right as the ring meets the sack for a <b style="color:var(--perfect)">Perfect</b>. Neck/Back are high-loft stalls. Build a combo, then swipe up to pass.</div>
+  </div>
+
+  <div class="screen hidden" id="customScreen">
+    <h1>Customize</h1>
+    <div class="cugroup"><div class="culabel">Footbag</div><div class="swatches" id="fbSwatches"></div></div>
+    <div class="cugroup"><div class="culabel">Outfit</div><div class="swatches" id="outSwatches"></div></div>
+    <button class="cta" id="customDone">Done</button>
   </div>
 
   <div class="screen hidden" id="overScreen">
@@ -280,15 +294,35 @@
 
   // ---------- footbag ----------
   const bag=new T.Group();
+  const bagCoreMat=new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.6});
+  const bagPanelMat=new T.MeshStandardMaterial({color:0xca6f1e,roughness:0.7});
   {
-    const core=new T.Mesh(new T.SphereGeometry(0.06,20,16),new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.6}));
-    bag.add(core);
-    const pm=new T.MeshStandardMaterial({color:0xca6f1e,roughness:0.7});
-    for(let i=0;i<6;i++){ bag.add(new T.Mesh(new T.SphereGeometry(0.061,8,6,i*1.05,0.62,0.4,1.4),pm)); }
+    bag.add(new T.Mesh(new T.SphereGeometry(0.06,20,16),bagCoreMat));
+    for(let i=0;i<6;i++){ bag.add(new T.Mesh(new T.SphereGeometry(0.061,8,6,i*1.05,0.62,0.4,1.4),bagPanelMat)); }
   }
   scene.add(bag); bag.position.copy(MOVES[0].pos);
   const blob=new T.Mesh(new T.CircleGeometry(0.085,22),new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.3}));
   blob.rotation.x=-Math.PI/2; blob.position.y=0.012; scene.add(blob);
+
+  // ---------- customization (footbag + outfit) ----------
+  const FOOTBAGS=[
+    {name:'Classic',core:0xf2a73c,panel:0xca6f1e},{name:'Crimson',core:0xe5484d,panel:0x9b2c2f},
+    {name:'Ocean',core:0x3aa7d8,panel:0x1f6f9e},{name:'Lime',core:0x9bd64a,panel:0x5f9a2e},
+    {name:'Grape',core:0x9b6dd6,panel:0x6a44a0},{name:'Coal',core:0x4a525c,panel:0x262b31},
+  ];
+  const OUTFITS=[
+    {name:'Sky',shirt:0x3d7ea6,pants:0x33536b,shoe:0xeef3f7},{name:'Night',shirt:0x2b3550,pants:0x1b2230,shoe:0xd0d6dd},
+    {name:'Cherry',shirt:0xd9544d,pants:0x7a2f2c,shoe:0xfff0e6},{name:'Forest',shirt:0x3f8f5b,pants:0x294b35,shoe:0xeef3f7},
+    {name:'Grape',shirt:0x7d5bb0,pants:0x4a3570,shoe:0xeae3f7},{name:'Mono',shirt:0x3a3f47,pants:0x23272d,shoe:0xff7a59},
+  ];
+  let fbIdx=clamp(+(localStorage.getItem('fb3d_fb')||0),0,FOOTBAGS.length-1)|0;
+  let outIdx=clamp(+(localStorage.getItem('fb3d_out')||0),0,OUTFITS.length-1)|0;
+  function applyCustom(){
+    const f=FOOTBAGS[fbIdx],o=OUTFITS[outIdx];
+    bagCoreMat.color.setHex(f.core); bagPanelMat.color.setHex(f.panel);
+    matShirt.color.setHex(o.shirt); matPants.color.setHex(o.pants); matShoe.color.setHex(o.shoe);
+  }
+  applyCustom();
 
   const ringMesh=new T.Mesh(new T.RingGeometry(0.085,0.11,40),
     new T.MeshBasicMaterial({color:0xffd84d,transparent:true,opacity:0.95,side:T.DoubleSide}));
@@ -605,6 +639,20 @@
     mode=m.dataset.mode;document.querySelectorAll('#modeSel .mode').forEach(x=>x.classList.toggle('on',x===m));});
   document.getElementById('startBtn').addEventListener('click',startGame);
   document.getElementById('againBtn').addEventListener('click',startGame);
+  // customization UI
+  const customScreen=document.getElementById('customScreen');
+  const hex=n=>'#'+n.toString(16).padStart(6,'0');
+  const markSel=(el,i)=>[...el.children].forEach((c,j)=>c.classList.toggle('sel',j===i));
+  function buildSw(el,arr,colKey,cur,onpick){
+    el.innerHTML='';
+    arr.forEach((o,i)=>{const s=document.createElement('div');s.className='swatch';s.style.background=hex(o[colKey]);s.title=o.name;
+      s.addEventListener('click',()=>{onpick(i);markSel(el,i);}); el.appendChild(s);});
+    markSel(el,cur);
+  }
+  buildSw(document.getElementById('fbSwatches'),FOOTBAGS,'core',fbIdx,i=>{fbIdx=i;applyCustom();try{localStorage.setItem('fb3d_fb',i);}catch(e){}});
+  buildSw(document.getElementById('outSwatches'),OUTFITS,'shirt',outIdx,i=>{outIdx=i;applyCustom();try{localStorage.setItem('fb3d_out',i);}catch(e){}});
+  document.getElementById('customBtn').addEventListener('click',()=>{startScreen.classList.add('hidden');customScreen.classList.remove('hidden');});
+  document.getElementById('customDone').addEventListener('click',()=>{customScreen.classList.add('hidden');startScreen.classList.remove('hidden');});
   const keymap={'1':'inside','2':'outside','3':'knee','4':'chest','5':'head','6':'neck','7':'back',a:'inside',s:'outside',d:'knee',f:'chest',' ':'head'};
   window.addEventListener('keydown',e=>{
     if(e.key==='ArrowLeft'){keyTilt=-1;return;} if(e.key==='ArrowRight'){keyTilt=1;return;}
