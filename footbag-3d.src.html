@@ -11,7 +11,6 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);user-select:none;}
   #wrap{position:fixed;inset:0;}
   #gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;}
-
   #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;
     padding:14px 18px;pointer-events:none;font-variant-numeric:tabular-nums;z-index:5;}
   .stat{background:rgba(0,0,0,.3);backdrop-filter:blur(6px);padding:6px 12px;border-radius:12px;}
@@ -21,7 +20,6 @@
     pointer-events:none;text-shadow:0 4px 18px rgba(0,0,0,.5);z-index:5;}
   #judge{position:absolute;top:21%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:800;opacity:0;
     pointer-events:none;letter-spacing:.04em;z-index:5;}
-
   #pads{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);gap:7px;
     padding:10px 10px 16px;z-index:5;}
   .pad{position:relative;background:rgba(22,34,46,.72);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.08);
@@ -29,24 +27,27 @@
     transition:transform .05s,background .1s;}
   .pad .emoji{font-size:22px;display:block;margin-bottom:1px;}
   .pad.lit{background:#26415a;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset,0 0 22px rgba(255,216,77,.4);}
+  .pad.hold{border-color:#b98cff;box-shadow:0 0 0 2px #b98cff inset,0 0 22px rgba(185,140,255,.55);}
   .pad:active{transform:scale(.93);}
-
+  #stall{position:absolute;left:50%;top:16%;transform:translateX(-50%);width:min(82%,420px);text-align:center;z-index:6;pointer-events:none;}
+  #stallLabel{font-weight:800;color:#c9a7ff;letter-spacing:.04em;margin-bottom:8px;font-size:15px;text-shadow:0 2px 10px rgba(0,0,0,.6);}
+  #balBar{position:relative;height:16px;border-radius:10px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.22);overflow:hidden;}
+  #balZone{position:absolute;left:33%;width:34%;top:0;bottom:0;background:rgba(90,209,255,.22);border-left:1px solid rgba(90,209,255,.4);border-right:1px solid rgba(90,209,255,.4);}
+  #balMarker{position:absolute;top:-3px;width:9px;height:22px;border-radius:4px;background:var(--accent);left:50%;transform:translateX(-50%);transition:background .1s;}
+  #stallTimer{margin-top:8px;font-weight:800;font-size:20px;font-variant-numeric:tabular-nums;color:var(--perfect);}
   .screen{position:absolute;inset:0;background:rgba(7,12,17,.86);backdrop-filter:blur(4px);display:flex;flex-direction:column;
     align-items:center;justify-content:center;text-align:center;padding:24px;z-index:20;}
   .hidden{display:none;}
-  h1{font-size:38px;margin:0 0 4px;letter-spacing:-.02em;}
-  h1 .em{color:var(--accent);}
+  h1{font-size:38px;margin:0 0 4px;letter-spacing:-.02em;} h1 .em{color:var(--accent);}
   .sub{opacity:.78;max-width:320px;line-height:1.5;margin-bottom:20px;font-size:14px;}
   button.cta{background:var(--accent);color:#1a1207;border:none;font-weight:800;font-size:17px;padding:14px 30px;
     border-radius:30px;cursor:pointer;box-shadow:0 8px 24px rgba(255,216,77,.3);}
   button.cta:active{transform:scale(.96);}
   .modes{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;justify-content:center;}
   .mode{background:var(--panel);border:2px solid rgba(255,255,255,.1);color:var(--ink);padding:10px 16px;border-radius:14px;
-    font-weight:700;font-size:13px;cursor:pointer;}
-  .mode.on{border-color:var(--accent);background:#26415a;}
+    font-weight:700;font-size:13px;cursor:pointer;} .mode.on{border-color:var(--accent);background:#26415a;}
   .big{font-size:58px;font-weight:800;color:var(--accent);margin:6px 0;}
-  .row{display:flex;gap:26px;margin-bottom:18px;}
-  .row .num{font-size:24px;font-weight:800;}
+  .row{display:flex;gap:26px;margin-bottom:18px;} .row .num{font-size:24px;font-weight:800;}
   .tip{font-size:12px;opacity:.6;margin-top:16px;max-width:300px;line-height:1.5;}
   #loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:30;font-size:15px;opacity:.8;}
 </style>
@@ -54,21 +55,23 @@
 <body>
 <div id="wrap">
   <canvas id="gl"></canvas>
-
   <div id="hud">
     <div class="stat"><div class="label">Score</div><b id="score">0</b></div>
     <div class="stat" style="text-align:right"><div class="label">Best</div><b id="best">0</b></div>
   </div>
   <div id="combo"></div>
   <div id="judge"></div>
-
   <div id="pads"></div>
-
+  <div id="stall" class="hidden">
+    <div id="stallLabel">STALL — hold the button &amp; tilt / drag / ← → to balance</div>
+    <div id="balBar"><div id="balZone"></div><div id="balMarker"></div></div>
+    <div id="stallTimer">0.0s</div>
+  </div>
   <div id="loading">Loading 3D…</div>
 
   <div class="screen hidden" id="startScreen">
     <h1>Foot<span class="em">bag</span> 3D</h1>
-    <div class="sub">First-person, through your own eyes. Look down and you'll see your own body. When a body part lights up, tap its button as the ring snaps shut.</div>
+    <div class="sub">First-person, through your own eyes. When a body part lights up, tap its button as the ring snaps shut — your limb swings out to meet the sack.</div>
     <div class="modes" id="modeSel">
       <div class="mode" data-mode="peaceful">🌿 Peaceful</div>
       <div class="mode on" data-mode="normal">⚡ Normal</div>
@@ -98,21 +101,22 @@
   const loadingEl=document.getElementById('loading');
   if(!T){ loadingEl.textContent='Could not load 3D library.'; return; }
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
 
   const padsEl=document.getElementById('pads');
   const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
   const comboEl=document.getElementById('combo'), judgeEl=document.getElementById('judge');
   const startScreen=document.getElementById('startScreen'), overScreen=document.getElementById('overScreen');
+  const stallEl=document.getElementById('stall'), balMarker=document.getElementById('balMarker'), stallTimer=document.getElementById('stallTimer');
+  const posOf=id=>{for(const m of MOVES){if(m.id===id)return m.pos;}};
 
-  // ---------- Moves: 3D contact points (metres), placed where the limbs reach ----------
   const MOVES=[
-    {id:'inside', name:'Inside', emoji:'🦶', pos:new T.Vector3(-0.16,0.24,-0.62)},
-    {id:'outside',name:'Outside',emoji:'👟', pos:new T.Vector3( 0.18,0.22,-0.66)},
-    {id:'knee',   name:'Knee',   emoji:'🦵', pos:new T.Vector3(-0.09,0.66,-0.62)},
-    {id:'chest',  name:'Chest',  emoji:'🫷', pos:new T.Vector3( 0.00,1.14,-0.60)},
-    {id:'head',   name:'Head',   emoji:'🙆', pos:new T.Vector3( 0.00,1.52,-0.52)},
+    {id:'inside', name:'Inside', emoji:'🦶', pos:new T.Vector3()},
+    {id:'outside',name:'Outside',emoji:'👟', pos:new T.Vector3()},
+    {id:'knee',   name:'Knee',   emoji:'🦵', pos:new T.Vector3()},
+    {id:'chest',  name:'Chest',  emoji:'🫷', pos:new T.Vector3()},
+    {id:'head',   name:'Head',   emoji:'🙆', pos:new T.Vector3()},
   ];
-
   const DIFF={
     peaceful:{travel:1600,perfect:175,good:300,ok:440,forgive:true, ramp:0},
     normal:  {travel:1200,perfect:115,good:205,ok:305,forgive:false,ramp:14},
@@ -123,19 +127,13 @@
   // ---------- renderer / scene / camera ----------
   const canvas=document.getElementById('gl');
   const renderer=new T.WebGLRenderer({canvas,antialias:true});
-  renderer.setClearColor(0x0b1620,1);
-  renderer.outputEncoding=T.sRGBEncoding;
-  const scene=new T.Scene();
-  scene.fog=new T.Fog(0x14283c,7,30);
-
+  renderer.setClearColor(0x0b1620,1); renderer.outputEncoding=T.sRGBEncoding;
+  const scene=new T.Scene(); scene.fog=new T.Fog(0x14283c,7,30);
   const EYE=1.62;
   const camera=new T.PerspectiveCamera(72,1,0.01,120);
   camera.position.set(0,EYE,0.06);
-  // downward gaze: see your legs receding in front + the play area
-  const restLook=new T.Vector3(0,0.62,-1.5);
-  camera.lookAt(restLook);
+  const restLook=new T.Vector3(0,0.6,-1.5); camera.lookAt(restLook);
 
-  // sky dome
   {
     const mat=new T.ShaderMaterial({side:T.BackSide,
       uniforms:{top:{value:new T.Color(0x1b3a57)},bot:{value:new T.Color(0x0a141d)}},
@@ -143,92 +141,130 @@
       fragmentShader:`varying float h;uniform vec3 top;uniform vec3 bot;void main(){gl_FragColor=vec4(mix(bot,top,clamp(h*0.6+0.4,0.0,1.0)),1.0);}`});
     scene.add(new T.Mesh(new T.SphereGeometry(50,24,16),mat));
   }
-
-  // lights
   scene.add(new T.HemisphereLight(0xdfeeff,0x2c465c,1.05));
-  const keyL=new T.DirectionalLight(0xffffff,0.85); keyL.position.set(2,6,3); scene.add(keyL);
-  const rimL=new T.DirectionalLight(0x9fd0ff,0.35); rimL.position.set(-3,2,-4); scene.add(rimL);
+  const keyL=new T.DirectionalLight(0xffffff,0.9); keyL.position.set(2,6,3); scene.add(keyL);
+  const rimL=new T.DirectionalLight(0x9fd0ff,0.4); rimL.position.set(-3,2,-4); scene.add(rimL);
 
-  // ground + grid + court circle
   const ground=new T.Mesh(new T.PlaneGeometry(80,80),
     new T.MeshStandardMaterial({color:0x1d3344,roughness:1,metalness:0}));
   ground.rotation.x=-Math.PI/2; scene.add(ground);
   const grid=new T.GridHelper(80,80,0x3f7aa0,0x21384a);
-  grid.material.opacity=0.35; grid.material.transparent=true; scene.add(grid);
+  grid.material.opacity=0.32; grid.material.transparent=true; scene.add(grid);
   {
     const ring=new T.Mesh(new T.RingGeometry(1.5,1.57,56),
-      new T.MeshBasicMaterial({color:0x57a0cc,transparent:true,opacity:0.45,side:T.DoubleSide}));
+      new T.MeshBasicMaterial({color:0x57a0cc,transparent:true,opacity:0.4,side:T.DoubleSide}));
     ring.rotation.x=-Math.PI/2; ring.position.y=0.01; scene.add(ring);
   }
 
-  // ---------- first-person body (own torso / legs / arms) ----------
-  const shirt=new T.MeshStandardMaterial({color:0x3d7ea6,roughness:0.75});
-  const pants=new T.MeshStandardMaterial({color:0x2b3f54,roughness:0.9});
-  const skin =new T.MeshStandardMaterial({color:0xe7b48a,roughness:0.8});
-  const shoeMat=new T.MeshStandardMaterial({color:0xf2f5f8,roughness:0.5});
-  const soleMat=new T.MeshStandardMaterial({color:0x9aa6b0,roughness:0.8});
+  // ---------- connected first-person body ----------
+  const matSkin =new T.MeshStandardMaterial({color:0xe7b48a,roughness:0.85});
+  const matPants=new T.MeshStandardMaterial({color:0x33536b,roughness:0.9});
+  const matShirt=new T.MeshStandardMaterial({color:0x3d7ea6,roughness:0.8});
+  const matShoe =new T.MeshStandardMaterial({color:0xeef3f7,roughness:0.55});
+  const ballM=(r,m)=>new T.Mesh(new T.SphereGeometry(r,16,12),m);
+  const segM =(rt,rb,h,m)=>{const g=new T.Mesh(new T.CylinderGeometry(rt,rb,h,16),m); g.position.y=-h/2; return g;};
 
-  // tiny waistband, kept low/back so it's just a sliver at the bottom (no chest blob)
-  const torso=new T.Mesh(new T.CylinderGeometry(0.14,0.115,0.44,18),shirt);
-  torso.position.set(0,1.04,-0.34); torso.rotation.x=0.34; torso.visible=false; scene.add(torso);
+  const L_THIGH=0.46, L_SHIN=0.50, L_UP=0.30, L_FORE=0.30;
+
+  const lowerBody=new T.Group(); scene.add(lowerBody);
+  const upperBody=new T.Group(); scene.add(upperBody);
+
+  // pelvis bridges the two hips so the legs read as one body
+  const pelvis=new T.Mesh(new T.SphereGeometry(0.155,18,14),matPants);
+  pelvis.scale.set(1.5,0.8,1.0); pelvis.position.set(0,0.92,-0.02); lowerBody.add(pelvis);
 
   function makeLeg(sign){
-    const hip=new T.Group(); hip.position.set(sign*0.12,0.9,-0.02);
-    hip.rotation.x=1.12;                        // thigh angles down & forward
-    const thigh=new T.Mesh(new T.CylinderGeometry(0.085,0.07,0.46,14),pants);
-    thigh.position.set(0,-0.23,0); hip.add(thigh);
-    const knee=new T.Group(); knee.position.set(0,-0.46,0); knee.rotation.x=-0.94; hip.add(knee); // shin ~vertical
-    const shin=new T.Mesh(new T.CylinderGeometry(0.065,0.052,0.50,14),pants);
-    shin.position.set(0,-0.25,0); knee.add(shin);
-    const ankle=new T.Group(); ankle.position.set(0,-0.50,0); knee.add(ankle);
-    const shoe=new T.Mesh(new T.BoxGeometry(0.12,0.075,0.27),shoeMat);
-    shoe.position.set(0,-0.02,-0.07); ankle.add(shoe);
-    const sole=new T.Mesh(new T.BoxGeometry(0.125,0.03,0.275),soleMat);
-    sole.position.set(0,-0.055,-0.07); ankle.add(sole);
-    hip.userData={knee}; scene.add(hip);
-    return hip;
+    const leg={};
+    const hip=new T.Group(); hip.position.set(sign*0.12,0.9,-0.02); lowerBody.add(hip); leg.hip=hip;
+    hip.add(ballM(0.095,matPants));                          // hip joint
+    hip.add(segM(0.085,0.07,L_THIGH,matPants));              // thigh
+    const knee=new T.Group(); knee.position.y=-L_THIGH; hip.add(knee); leg.knee=knee;
+    knee.add(ballM(0.072,matPants));                         // knee joint
+    knee.add(segM(0.07,0.055,L_SHIN,matPants));              // shin
+    const ankle=new T.Group(); ankle.position.y=-L_SHIN; knee.add(ankle); leg.ankle=ankle;
+    ankle.add(ballM(0.055,matShoe));                         // ankle
+    const shoe=new T.Mesh(new T.BoxGeometry(0.11,0.08,0.26),matShoe); shoe.position.set(0,-0.03,-0.07); ankle.add(shoe);
+    const toe=ballM(0.06,matShoe); toe.scale.set(1,0.7,1); toe.position.set(0,-0.03,-0.19); ankle.add(toe);
+    const footNode=new T.Object3D(); footNode.position.set(0,0.05,-0.14); ankle.add(footNode); leg.foot=footNode;
+    const kneeNode=new T.Object3D(); kneeNode.position.set(0,0.0,-0.11); knee.add(kneeNode); leg.kneeNode=kneeNode;
+    return leg;
   }
   const legL=makeLeg(-1), legR=makeLeg(1);
 
+  // torso + arms (upper body, shown only for chest/head)
+  // torso kept hidden — a vertical cylinder reads as an ugly disc from this top-down view;
+  // chest/head are shown via the arms coming up to trap the sack instead.
+  const torso=new T.Mesh(new T.CylinderGeometry(0.145,0.12,0.44,18),matShirt);
+  torso.position.set(0,1.06,-0.34); torso.rotation.x=0.34; torso.visible=false; upperBody.add(torso);
+
   function makeArm(sign){
-    const sh=new T.Group(); sh.position.set(sign*0.2,1.42,0.16);  // behind the eye-line
-    sh.rotation.x=0.12;                         // hang straight down, out of view at rest
-    const upper=new T.Mesh(new T.CylinderGeometry(0.052,0.045,0.30,12),shirt);
-    upper.position.set(0,-0.15,0); sh.add(upper);
-    const elbow=new T.Group(); elbow.position.set(0,-0.30,0); elbow.rotation.x=0.25; sh.add(elbow);
-    const fore=new T.Mesh(new T.CylinderGeometry(0.045,0.038,0.28,12),skin);
-    fore.position.set(0,-0.14,0); elbow.add(fore);
-    const hand=new T.Mesh(new T.SphereGeometry(0.052,12,10),skin);
-    hand.position.set(0,-0.30,0); elbow.add(hand);
-    sh.userData={elbow}; scene.add(sh);
-    return sh;
+    const arm={};
+    const sh=new T.Group(); sh.position.set(sign*0.17,1.34,-0.22); upperBody.add(sh); arm.sh=sh;
+    sh.add(ballM(0.06,matShirt));
+    sh.add(segM(0.052,0.045,L_UP,matShirt));
+    const el=new T.Group(); el.position.y=-L_UP; sh.add(el); arm.el=el;
+    el.add(ballM(0.045,matSkin));
+    el.add(segM(0.045,0.038,L_FORE,matSkin));
+    const hand=ballM(0.055,matSkin); hand.position.y=-L_FORE; el.add(hand);
+    const handNode=new T.Object3D(); handNode.position.set(0,-L_FORE-0.04,0); el.add(handNode); arm.hand=handNode;
+    return arm;
   }
   const armL=makeArm(-1), armR=makeArm(1);
+  // contact nodes for chest / head (on the body centre-line, in front)
+  const chestNode=new T.Object3D(); chestNode.position.set(0,1.15,-0.72); upperBody.add(chestNode);
+  const headNode =new T.Object3D(); headNode.position.set(0,1.6,-0.7); upperBody.add(headNode);
 
-  const REST={legHipX:1.12, kneeX:-0.94, armShX:0.12, armElX:0.18};
+  // ---- poses ----
+  const legRest={hx:1.04,hz:0,kx:-0.92};
+  const STRIKE={
+    inside :{leg:legL, eff:'foot',     pose:{hx:1.0, hz:0.12, kx:-0.38}},
+    outside:{leg:legR, eff:'foot',     pose:{hx:1.0, hz:-0.12,kx:-0.38}},
+    knee   :{leg:legL, eff:'kneeNode', pose:{hx:0.5, hz:0,    kx:-1.30}},
+  };
+  const armRest={sh:0.15,el:0.2};
+  const ARMSTRIKE={ chest:{sh:1.0,el:0.5}, head:{sh:1.9,el:0.4} };
+
+  function poseLeg(leg,p){ leg.hip.rotation.set(p.hx,0,p.hz); leg.knee.rotation.x=p.kx; }
+  function poseArm(arm,p){ arm.sh.rotation.x=p.sh; arm.el.rotation.x=p.el; }
+  function restAll(){ poseLeg(legL,legRest); poseLeg(legR,legRest); poseArm(armL,armRest); poseArm(armR,armRest); }
+
+  // current (smoothed) poses
+  const curL={...legRest}, curR={...legRest}, curAL={...armRest}, curAR={...armRest};
+
+  // derive each move's contact point from where the limb actually reaches at full strike
+  function computeContacts(){
+    for(const m of MOVES){
+      restAll();
+      if(m.id==='inside'||m.id==='outside'||m.id==='knee'){ const s=STRIKE[m.id]; poseLeg(s.leg,s.pose); }
+      else if(m.id==='chest'){ poseArm(armL,ARMSTRIKE.chest); poseArm(armR,ARMSTRIKE.chest); }
+      else if(m.id==='head'){ poseArm(armL,ARMSTRIKE.head); poseArm(armR,ARMSTRIKE.head); }
+      scene.updateMatrixWorld(true);
+      let node;
+      if(m.id==='inside') node=legL.foot; else if(m.id==='outside') node=legR.foot;
+      else if(m.id==='knee') node=legL.kneeNode; else if(m.id==='chest') node=chestNode; else node=headNode;
+      node.getWorldPosition(m.pos);
+    }
+    restAll();
+  }
+  computeContacts();
+  restAll();
 
   // ---------- footbag ----------
   const bag=new T.Group();
   {
-    const core=new T.Mesh(new T.SphereGeometry(0.060,20,16),
-      new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.65}));
+    const core=new T.Mesh(new T.SphereGeometry(0.06,20,16),new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.6}));
     bag.add(core);
     const pm=new T.MeshStandardMaterial({color:0xca6f1e,roughness:0.7});
-    for(let i=0;i<6;i++){
-      const p=new T.Mesh(new T.SphereGeometry(0.061,8,6,i*1.05,0.62,0.4,1.4),pm); bag.add(p);
-    }
+    for(let i=0;i<6;i++){ bag.add(new T.Mesh(new T.SphereGeometry(0.061,8,6,i*1.05,0.62,0.4,1.4),pm)); }
   }
   scene.add(bag); bag.position.copy(MOVES[0].pos);
-  const blob=new T.Mesh(new T.CircleGeometry(0.085,22),
-    new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.3}));
+  const blob=new T.Mesh(new T.CircleGeometry(0.085,22),new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.3}));
   blob.rotation.x=-Math.PI/2; blob.position.y=0.012; scene.add(blob);
 
-  // ---------- timing ring (billboard) ----------
   const ringMesh=new T.Mesh(new T.RingGeometry(0.085,0.11,40),
     new T.MeshBasicMaterial({color:0xffd84d,transparent:true,opacity:0.95,side:T.DoubleSide}));
   scene.add(ringMesh);
 
-  // ---------- particles ----------
   const SPARKS=140, sparkGeo=new T.BufferGeometry(), sparkPos=new Float32Array(SPARKS*3);
   sparkGeo.setAttribute('position',new T.BufferAttribute(sparkPos,3));
   const sparkMat=new T.PointsMaterial({color:0xffe9a3,size:0.05,transparent:true,opacity:0.95});
@@ -242,38 +278,44 @@
       s.life=1;s.p.copy(at);s.v.set((Math.random()-0.5)*2.6,Math.random()*2.4+0.5,(Math.random()-0.5)*2.6);made++;}
   }
 
-  // ---------- pads ----------
   const padMap={};
+  let heldId=null;
   MOVES.forEach(m=>{const b=document.createElement('div');b.className='pad';b.dataset.id=m.id;
     b.innerHTML=`<span class="emoji">${m.emoji}</span>${m.name}`;
-    b.addEventListener('pointerdown',e=>{e.preventDefault();hit(m.id);});
+    b.addEventListener('pointerdown',e=>{e.preventDefault();heldId=m.id;press(m.id);});
+    b.addEventListener('pointerup',e=>{e.preventDefault();if(heldId===m.id)heldId=null;});
+    b.addEventListener('pointerleave',()=>{if(heldId===m.id)heldId=null;});
     padsEl.appendChild(b);padMap[m.id]=b;});
-  const lightPad=id=>{for(const k in padMap)padMap[k].classList.toggle('lit',k===id);};
-  const clearPads=()=>{for(const k in padMap)padMap[k].classList.remove('lit');};
+  function press(id){ hit(id); }
+  let keyTilt=0, ptrTilt=0, devTilt=0, devActive=false;
+  const tiltNow=()=>devActive?devTilt:(keyTilt!==0?keyTilt:ptrTilt);
+  window.addEventListener('pointermove',e=>{ptrTilt=clamp((e.clientX/window.innerWidth-0.5)*2.2,-1,1);});
+  window.addEventListener('deviceorientation',e=>{if(e.gamma!=null){devActive=true;devTilt=clamp(e.gamma/28,-1,1);}});
+  const lightPad=id=>{for(const k in padMap){padMap[k].classList.toggle('lit',k===id);padMap[k].classList.remove('hold');}};
+  const clearPads=()=>{for(const k in padMap)padMap[k].classList.remove('lit','hold');};
 
   // ---------- state ----------
-  let running=false, state=null;
-  const clock=new T.Clock();
+  let running=false, state=null; const clock=new T.Clock();
   function newState(){return {score:0,combo:0,bestCombo:0,perfects:0,touches:0,speedBoost:0,
     target:null,from:new T.Vector3(),to:new T.Vector3(),apex:new T.Vector3(),hitPos:new T.Vector3(),
-    t0:0,idealT:0,resolved:false,limb:{id:null,t:0},gaze:new T.Vector3().copy(restLook)};}
+    t0:0,idealT:0,p:0,resolved:false,isStall:false,stalling:null,limb:{id:null,t:0},gaze:new T.Vector3().copy(restLook)};}
 
   function launchTo(move,fromPt,now){
     const travel=Math.max(380,DIFF[mode].travel-state.speedBoost);
     state.target=move; state.from.copy(fromPt); state.to.copy(move.pos);
     state.t0=now; state.idealT=now+travel;
-    // pop straight up between the two body parts and come back down — stays in play
     const mx=(fromPt.x+move.pos.x)*0.5, mz=(fromPt.z+move.pos.z)*0.5;
-    state.apex.set(mx+(Math.random()-0.5)*0.12, 1.85+Math.random()*0.3, mz+0.04);
+    // peak pushed farther out so it reads smaller/more natural, still returning in front
+    state.apex.set(mx+(Math.random()-0.5)*0.1, 1.68+Math.random()*0.22, mz-0.9-Math.random()*0.3);
+    state.isStall = !!(state.combo>=3 && Math.random()<0.18);
     state.resolved=false; lightPad(move.id);
+    if(state.isStall) padMap[move.id].classList.add('hold');
   }
   function seg(a,mid,b,p){const la=(a-mid)/0.25,lb=(b-mid)/0.25;return p<0.5?mid+la*(p-0.5)*(p-0.5):mid+lb*(p-0.5)*(p-0.5);}
   const _bp=new T.Vector3();
   function bagPos(now){
-    const p=Math.max(0,Math.min(1,(now-state.t0)/(state.idealT-state.t0)));
-    _bp.set(seg(state.from.x,state.apex.x,state.to.x,p),
-            seg(state.from.y,state.apex.y,state.to.y,p),
-            seg(state.from.z,state.apex.z,state.to.z,p));
+    const p=clamp((now-state.t0)/(state.idealT-state.t0),0,1);
+    _bp.set(seg(state.from.x,state.apex.x,state.to.x,p),seg(state.from.y,state.apex.y,state.to.y,p),seg(state.from.z,state.apex.z,state.to.z,p));
     return {pos:_bp,p};
   }
   function judge(da){const d=DIFF[mode];return da<=d.perfect?'perfect':da<=d.good?'good':da<=d.ok?'ok':null;}
@@ -282,16 +324,15 @@
     if(!running||!state.target||state.resolved)return;
     const now=performance.now(); const q=judge(Math.abs(now-state.idealT));
     if(id===state.target.id&&q){
+      if(state.isStall){ enterStall(now); return; }
       state.resolved=true;
-      const pts={perfect:100,good:60,ok:30}[q];
-      const mult=1+Math.floor(state.combo/4)*0.5;
-      const gained=Math.round(pts*mult);
+      const pts={perfect:100,good:60,ok:30}[q], mult=1+Math.floor(state.combo/4)*0.5, gained=Math.round(pts*mult);
       state.score+=gained;state.combo++;state.touches++;
       if(state.combo>state.bestCombo)state.bestCombo=state.combo;
       if(q==='perfect')state.perfects++;
       state.speedBoost+=DIFF[mode].ramp;
       showJudge(q,gained);flashCombo();burst(state.to,q);
-      state.hitPos.copy(state.to);              // remember the struck limb's spot
+      state.hitPos.copy(state.to);
       state.limb={id:state.target.id,t:now};
       launchTo(pickNext(),state.to,now);
     }else{
@@ -306,16 +347,14 @@
     const map={perfect:['PERFECT','var(--perfect)'],good:['GOOD','var(--good)'],ok:['OK','var(--accent)'],miss:['MISS','var(--miss)']};
     const[txt,col]=map[q];judgeEl.textContent=pts?`${txt}  +${pts}`:txt;judgeEl.style.color=col;
     judgeEl.style.transition='none';judgeEl.style.opacity='1';judgeEl.style.transform='translate(-50%,-50%) scale(1.15)';
-    requestAnimationFrame(()=>{judgeEl.style.transition='all .5s ease-out';judgeEl.style.opacity='0';
-      judgeEl.style.transform='translate(-50%,-70%) scale(.9)';});
+    requestAnimationFrame(()=>{judgeEl.style.transition='all .5s ease-out';judgeEl.style.opacity='0';judgeEl.style.transform='translate(-50%,-70%) scale(.9)';});
   }
   function flashCombo(){
     if(state.combo<2){comboEl.style.opacity='0';return;}
     comboEl.textContent=state.combo+'x';
     comboEl.style.color=state.combo>=12?'var(--perfect)':state.combo>=6?'var(--accent)':'var(--good)';
     comboEl.style.transition='none';comboEl.style.opacity='.9';comboEl.style.transform='translate(-50%,-50%) scale(1.25)';
-    requestAnimationFrame(()=>{comboEl.style.transition='all .45s';comboEl.style.opacity='0';
-      comboEl.style.transform='translate(-50%,-50%) scale(1)';});
+    requestAnimationFrame(()=>{comboEl.style.transition='all .45s';comboEl.style.opacity='0';comboEl.style.transform='translate(-50%,-50%) scale(1)';});
   }
   function gameOver(){
     running=false;clearPads();
@@ -330,128 +369,168 @@
   function updateHUD(){scoreEl.textContent=state?state.score:0;
     bestEl.textContent=Math.max(state?state.score:0,+(localStorage.getItem('fb3d_best')||0));}
 
-  // ---------- limb animation ----------
-  function setRest(){
-    legL.rotation.x=REST.legHipX; legR.rotation.x=REST.legHipX; legL.rotation.z=0; legR.rotation.z=0;
-    legL.userData.knee.rotation.x=REST.kneeX; legR.userData.knee.rotation.x=REST.kneeX;
-    armL.rotation.x=REST.armShX; armR.rotation.x=REST.armShX; armL.rotation.z=0; armR.rotation.z=0;
-    armL.userData.elbow.rotation.x=REST.armElX; armR.userData.elbow.rotation.x=REST.armElX;
+  // ---------- stall: hold the button and balance ----------
+  function enterStall(now){
+    state.resolved=true;
+    const dur = mode==='pro'?2.6:(mode==='peaceful'?1.8:2.2);
+    state.stalling={part:state.target.id,b:(Math.random()-0.5)*0.25,v:(Math.random()-0.5)*0.9,t0:now,dur,seed:Math.random()*6.28};
+    clearPads(); lightPad(state.target.id);
+    stallEl.classList.remove('hidden');
   }
-  function animLimbs(now){
-    setRest();
-    if(!state||!state.limb.id)return;
-    const dt=now-state.limb.t; if(dt>380)return;
-    const k=Math.sin(Math.min(1,dt/380)*Math.PI), id=state.limb.id;
-    if(id==='inside'){ legL.rotation.x=REST.legHipX-k*1.25; legL.rotation.z=k*0.32;
-      legL.userData.knee.rotation.x=REST.kneeX+k*0.95; }
-    else if(id==='outside'){ legR.rotation.x=REST.legHipX-k*1.25; legR.rotation.z=-k*0.32;
-      legR.userData.knee.rotation.x=REST.kneeX+k*0.95; }
-    else if(id==='knee'){ legL.rotation.x=REST.legHipX-k*1.75;
-      legL.userData.knee.rotation.x=REST.kneeX+k*0.55; }
-    else if(id==='chest'){ armL.rotation.x=REST.armShX-k*1.35; armR.rotation.x=REST.armShX-k*1.35;
-      armL.userData.elbow.rotation.x=REST.armElX+k*0.55; armR.userData.elbow.rotation.x=REST.armElX+k*0.55; }
-    else if(id==='head'){ armL.rotation.x=REST.armShX-k*1.7; armR.rotation.x=REST.armShX-k*1.7; }
+  function completeStall(now){
+    const part=state.stalling.part;
+    const mult=1+Math.floor(state.combo/4)*0.5, gained=Math.round(180*mult);
+    state.score+=gained; state.combo++; state.touches++;
+    if(state.combo>state.bestCombo)state.bestCombo=state.combo;
+    showJudge('perfect',gained); flashCombo(); burst(bag.position,'perfect');
+    state.stalling=null; stallEl.classList.add('hidden');
+    state.hitPos.copy(posOf(part)); state.limb={id:part,t:now};
+    launchTo(pickNext(),posOf(part),now);
   }
-  setRest();
+  function dropStall(now){
+    const part=state.stalling.part;
+    state.stalling=null; stallEl.classList.add('hidden');
+    state.combo=0; showJudge('miss',0);
+    state.hitPos.copy(posOf(part)); state.limb={id:part,t:now};
+    launchTo(pickNext(),posOf(part),now);
+  }
+  function updateStall(now,dt,t){
+    const st=state.stalling, tt=now/1000;
+    const wind=(Math.sin(tt*1.3+st.seed)*0.55+Math.sin(tt*3.1+st.seed*1.7)*0.3)*0.9;
+    const accel=st.b*5.0 + wind - tiltNow()*5.0;          // inverted-pendulum: tilt toward the lean to catch it
+    st.v+=accel*dt; st.v*=0.985; st.b+=st.v*dt;
+    const cp=posOf(st.part);
+    bag.position.set(cp.x+st.b*0.13, cp.y+0.05, cp.z); bag.rotation.y+=dt*2;
+    blob.position.set(bag.position.x,0.012,bag.position.z); blob.scale.set(0.7,0.7,1); blob.material.opacity=0.25;
+    ringMesh.visible=false;
+    const ease=1-Math.pow(0.0015,dt);
+    tmpV.copy(restLook).lerp(bag.position,0.36); if(tmpV.y>1.12)tmpV.y=1.12; state.gaze.lerp(tmpV,ease);
+    const txc=clamp(bag.position.x*0.5,-0.3,0.3);
+    camera.position.x+=(txc-camera.position.x)*ease;
+    camera.position.y+=((EYE+Math.sin(t*1.8)*0.005)-camera.position.y)*ease;
+    camera.position.z+=(0.06-camera.position.z)*ease;
+    camera.lookAt(state.gaze);
+    driveBody(dt);
+    balMarker.style.left=(50+clamp(st.b,-1,1)*48)+'%';
+    balMarker.style.background=Math.abs(st.b)>0.66?'var(--miss)':'var(--accent)';
+    const elapsed=(now-st.t0)/1000;
+    stallTimer.textContent=Math.max(0,st.dur-elapsed).toFixed(1)+'s';
+    updateHUD();
+    if(heldId!==st.part) dropStall(now);
+    else if(Math.abs(st.b)>=1) dropStall(now);
+    else if(elapsed>=st.dur) completeStall(now);
+  }
+
+  // ---------- drive the body: limbs anticipate & meet the incoming sack ----------
+  function lerpPoseLeg(cur,des,t){cur.hx=lerp(cur.hx,des.hx,t);cur.hz=lerp(cur.hz,des.hz,t);cur.kx=lerp(cur.kx,des.kx,t);}
+  function lerpPoseArm(cur,des,t){cur.sh=lerp(cur.sh,des.sh,t);cur.el=lerp(cur.el,des.el,t);}
+  const easeOutBack=t=>{const s=1.6;return 1+(s+1)*Math.pow(t-1,3)+s*Math.pow(t-1,2);};
+  const easeOutCubic=t=>1-Math.pow(1-t,3);
+  const mixLeg=(a,b,t)=>({hx:lerp(a.hx,b.hx,t),hz:lerp(a.hz,b.hz,t),kx:lerp(a.kx,b.kx,t)});
+  const mixArm=(a,b,t)=>({sh:lerp(a.sh,b.sh,t),el:lerp(a.el,b.el,t)});
+  const beyondLeg=s=>({hx:legRest.hx+(s.hx-legRest.hx)*1.22,hz:legRest.hz+(s.hz-legRest.hz)*1.22,kx:legRest.kx+(s.kx-legRest.kx)*1.22});
+  const FT=260; // follow-through window (ms)
+  function driveBody(dt){
+    const now=performance.now();
+    let act=(running&&state&&!state.resolved)?state.target.id:null;
+    let swing=easeOutBack(state?clamp((state.p-0.4)/0.6,0,1):0);   // snappy swing peaking at contact
+    if(state&&state.stalling){act=state.stalling.part; swing=1;}    // hold the limb under the sack
+    const hitId=state?state.limb.id:null, hitAge=state?now-state.limb.t:1e9;
+    let dL=legRest;
+    if(act==='inside')    dL=mixLeg(legRest,STRIKE.inside.pose,swing);
+    else if(act==='knee') dL=mixLeg(legRest,STRIKE.knee.pose,swing);
+    else if((hitId==='inside'||hitId==='knee')&&hitAge<FT) dL=mixLeg(beyondLeg(STRIKE[hitId].pose),legRest,easeOutCubic(hitAge/FT)); // follow-through
+    let dR=legRest;
+    if(act==='outside')   dR=mixLeg(legRest,STRIKE.outside.pose,swing);
+    else if(hitId==='outside'&&hitAge<FT) dR=mixLeg(beyondLeg(STRIKE.outside.pose),legRest,easeOutCubic(hitAge/FT));
+    let dA=armRest;
+    if(act==='chest')     dA=mixArm(armRest,ARMSTRIKE.chest,swing);
+    else if(act==='head') dA=mixArm(armRest,ARMSTRIKE.head,swing);
+    else if((hitId==='chest'||hitId==='head')&&hitAge<FT) dA=mixArm(ARMSTRIKE[hitId],armRest,easeOutCubic(hitAge/FT));
+    const t=clamp(dt*16,0,1);
+    lerpPoseLeg(curL,dL,t); lerpPoseLeg(curR,dR,t); lerpPoseArm(curAL,dA,t); lerpPoseArm(curAR,dA,t);
+    poseLeg(legL,curL); poseLeg(legR,curR); poseArm(armL,curAL); poseArm(armR,curAR);
+    const upActive = act==='chest'||act==='head'||((hitId==='chest'||hitId==='head')&&hitAge<300);
+    upperBody.visible=!!upActive;
+  }
 
   // ---------- loop ----------
   const tmpV=new T.Vector3();
   function animate(){
     requestAnimationFrame(animate);
     const now=performance.now(), dt=Math.min(0.05,clock.getDelta()), t=clock.elapsedTime;
-
     const ease=1-Math.pow(0.0012,dt);
 
     if(running&&state){
-      const {pos}=bagPos(now);
+      if(state.stalling){ updateStall(now,dt,t); } else {
+      const {pos,p}=bagPos(now); state.p=p;
       bag.position.copy(pos); bag.rotation.x+=dt*4; bag.rotation.y+=dt*3;
       blob.position.set(pos.x,0.012,pos.z);
-      const bs=Math.max(0.4,1.1-pos.y*0.18); blob.scale.set(bs,bs,1);
-      blob.material.opacity=Math.max(0.05,0.3-pos.y*0.07);
+      const bs=Math.max(0.4,1.1-pos.y*0.18); blob.scale.set(bs,bs,1); blob.material.opacity=Math.max(0.05,0.3-pos.y*0.07);
 
-      // --- move the viewpoint: strafe to centre the sack + lunge toward the striking limb ---
-      let offX=pos.x*0.55;                              // strafe with the sack
-      let offY=clamp((pos.y-0.95)*0.10,-0.14,0.10);    // dip for low, lift for high
-      let offZ=0;
-      if(state.limb.id){
-        const a=now-state.limb.t;
-        if(a<300){ const kk=Math.sin(Math.min(1,a/300)*Math.PI);
-          offX+=state.hitPos.x*0.6*kk;                 // shift toward the limb that hit
-          offY+=(state.hitPos.y-EYE)*0.12*kk;          // drop toward low limbs
-          offZ+=-0.05*kk;                              // small forward lean
-        }
-      }
+      let offX=pos.x*0.55, offY=clamp((pos.y-0.95)*0.10,-0.14,0.10), offZ=0;
+      if(state.limb.id){const a=now-state.limb.t; if(a<300){const kk=Math.sin(Math.min(1,a/300)*Math.PI);
+        offX+=state.hitPos.x*0.6*kk; offY+=(state.hitPos.y-EYE)*0.12*kk; offZ+=-0.05*kk;}}
       offX=clamp(offX,-0.32,0.32);
       const tx=offX+Math.sin(t*0.9)*0.004, ty=EYE+offY+Math.sin(t*1.8)*0.005, tz=0.06+offZ;
-      camera.position.x+=(tx-camera.position.x)*ease;
-      camera.position.y+=(ty-camera.position.y)*ease;
-      camera.position.z+=(tz-camera.position.z)*ease;
-
-      // gaze follows the sack (combined with strafe this keeps it centred)
-      tmpV.copy(restLook).lerp(pos,0.42);
-      state.gaze.lerp(tmpV,ease);
-      camera.lookAt(state.gaze);
-
-      // show the chest only when it's the body part in play
-      torso.visible = (state.target&&state.target.id==='chest') || (state.limb.id==='chest'&&(now-state.limb.t)<360);
+      camera.position.x+=(tx-camera.position.x)*ease; camera.position.y+=(ty-camera.position.y)*ease; camera.position.z+=(tz-camera.position.z)*ease;
+      tmpV.copy(restLook).lerp(pos,0.36); if(tmpV.y>1.12)tmpV.y=1.12; state.gaze.lerp(tmpV,ease); camera.lookAt(state.gaze);
 
       if(!state.resolved){
         ringMesh.visible=true; ringMesh.position.copy(state.to); ringMesh.quaternion.copy(camera.quaternion);
-        const left=Math.max(0,(state.idealT-now)/(state.idealT-state.t0));
-        const s=0.55+left*2.0; ringMesh.scale.set(s,s,s);
-        ringMesh.material.color.set(left<0.13?0x5ad1ff:0xffd84d);
-        ringMesh.material.opacity=0.5+0.45*(1-left);
+        const left=Math.max(0,(state.idealT-now)/(state.idealT-state.t0)); const s=0.55+left*2.0; ringMesh.scale.set(s,s,s);
+        ringMesh.material.color.set(state.isStall?0xb98cff:(left<0.13?0x5ad1ff:0xffd84d)); ringMesh.material.opacity=0.5+0.45*(1-left);
       } else ringMesh.visible=false;
 
-      animLimbs(now);
+      driveBody(dt);
 
       if(!state.resolved&&now>state.idealT+DIFF[mode].ok+45){
         if(DIFF[mode].forgive){state.resolved=true;state.combo=0;showJudge('miss',0);launchTo(pickNext(),state.to,now);}
         else gameOver();
       }
       updateHUD();
+      }
     }else{
-      ringMesh.visible=false; torso.visible=false;
+      ringMesh.visible=false;
       camera.position.x+=((Math.sin(t*0.9)*0.004)-camera.position.x)*ease;
       camera.position.y+=((EYE+Math.sin(t*1.8)*0.005)-camera.position.y)*ease;
       camera.position.z+=(0.06-camera.position.z)*ease;
-      camera.lookAt(restLook); setRest();
+      camera.lookAt(restLook); driveBody(dt);
     }
 
     let any=false;
     for(let i=0;i<SPARKS;i++){const s=sparkData[i];
       if(s.life>0){s.life-=dt*1.4;s.v.y-=4.5*dt;s.p.addScaledVector(s.v,dt);
-        sparkPos[i*3]=s.p.x;sparkPos[i*3+1]=Math.max(0,s.p.y);sparkPos[i*3+2]=s.p.z;any=true;}
-      else{sparkPos[i*3+1]=-100;}}
+        sparkPos[i*3]=s.p.x;sparkPos[i*3+1]=Math.max(0,s.p.y);sparkPos[i*3+2]=s.p.z;any=true;} else {sparkPos[i*3+1]=-100;}}
     if(any)sparkGeo.attributes.position.needsUpdate=true;
-
     renderer.render(scene,camera);
   }
 
-  // ---------- controls ----------
+  // ---------- controls / boot ----------
   function startGame(){
-    state=newState();
-    startScreen.classList.add('hidden');overScreen.classList.add('hidden');
-    running=true;updateHUD();
-    launchTo(MOVES[0],new T.Vector3(0,1.0,-0.6),performance.now());
+    state=newState(); startScreen.classList.add('hidden');overScreen.classList.add('hidden');
+    running=true;updateHUD(); launchTo(MOVES[0],new T.Vector3(0,1.0,-0.6),performance.now());
   }
   document.getElementById('modeSel').addEventListener('click',e=>{const m=e.target.closest('.mode');if(!m)return;
     mode=m.dataset.mode;document.querySelectorAll('#modeSel .mode').forEach(x=>x.classList.toggle('on',x===m));});
   document.getElementById('startBtn').addEventListener('click',startGame);
   document.getElementById('againBtn').addEventListener('click',startGame);
   const keymap={'1':'inside','2':'outside','3':'knee','4':'chest','5':'head',a:'inside',s:'outside',d:'knee',f:'chest',' ':'head'};
-  window.addEventListener('keydown',e=>{if(!running)return;const id=keymap[e.key.toLowerCase()];if(id){e.preventDefault();hit(id);}});
+  window.addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft'){keyTilt=-1;return;} if(e.key==='ArrowRight'){keyTilt=1;return;}
+    if(!running||e.repeat)return; const id=keymap[e.key.toLowerCase()];
+    if(id){e.preventDefault();heldId=id;press(id);}});
+  window.addEventListener('keyup',e=>{
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){keyTilt=0;return;}
+    const id=keymap[e.key.toLowerCase()]; if(id&&heldId===id)heldId=null;});
 
-  // ---------- resize / boot ----------
   function resize(){const w=window.innerWidth,h=window.innerHeight;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.setSize(w,h,false);
     camera.aspect=w/h;camera.updateProjectionMatrix();}
   window.addEventListener('resize',resize);resize();
 
   bestEl.textContent=+(localStorage.getItem('fb3d_best')||0);
-  loadingEl.style.display='none';
-  startScreen.classList.remove('hidden');
-  animate();
+  loadingEl.style.display='none'; startScreen.classList.remove('hidden'); animate();
 })();
 </script>
 </body>
