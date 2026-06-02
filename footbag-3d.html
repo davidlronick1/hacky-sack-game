@@ -17,14 +17,14 @@
   .stat{background:rgba(0,0,0,.3);backdrop-filter:blur(6px);padding:6px 12px;border-radius:12px;}
   .stat b{color:var(--accent);font-size:20px;}
   .label{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;}
-  #combo{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);font-size:46px;font-weight:800;opacity:0;
+  #combo{position:absolute;top:28%;left:50%;transform:translate(-50%,-50%);font-size:46px;font-weight:800;opacity:0;
     pointer-events:none;text-shadow:0 4px 18px rgba(0,0,0,.5);z-index:5;}
-  #judge{position:absolute;top:23%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:800;opacity:0;
+  #judge{position:absolute;top:21%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:800;opacity:0;
     pointer-events:none;letter-spacing:.04em;z-index:5;}
 
   #pads{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);gap:7px;
     padding:10px 10px 16px;z-index:5;}
-  .pad{position:relative;background:rgba(22,34,46,.82);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.08);
+  .pad{position:relative;background:rgba(22,34,46,.72);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.08);
     border-radius:14px;padding:12px 4px;text-align:center;font-weight:700;font-size:12px;color:var(--ink);
     transition:transform .05s,background .1s;}
   .pad .emoji{font-size:22px;display:block;margin-bottom:1px;}
@@ -111,13 +111,13 @@
   const comboEl=document.getElementById('combo'), judgeEl=document.getElementById('judge');
   const startScreen=document.getElementById('startScreen'), overScreen=document.getElementById('overScreen');
 
-  // ---------- Moves: 3D contact points (metres), placed where the limbs actually reach ----------
+  // ---------- Moves: 3D contact points (metres), placed where the limbs reach ----------
   const MOVES=[
-    {id:'inside', name:'Inside', emoji:'🦶', pos:new T.Vector3(-0.17,0.20,-0.52)},
-    {id:'outside',name:'Outside',emoji:'👟', pos:new T.Vector3( 0.19,0.18,-0.55)},
-    {id:'knee',   name:'Knee',   emoji:'🦵', pos:new T.Vector3(-0.08,0.66,-0.55)},
-    {id:'chest',  name:'Chest',  emoji:'🫷', pos:new T.Vector3( 0.00,1.16,-0.55)},
-    {id:'head',   name:'Head',   emoji:'🙆', pos:new T.Vector3( 0.00,1.55,-0.45)},
+    {id:'inside', name:'Inside', emoji:'🦶', pos:new T.Vector3(-0.16,0.24,-0.62)},
+    {id:'outside',name:'Outside',emoji:'👟', pos:new T.Vector3( 0.18,0.22,-0.66)},
+    {id:'knee',   name:'Knee',   emoji:'🦵', pos:new T.Vector3(-0.09,0.66,-0.62)},
+    {id:'chest',  name:'Chest',  emoji:'🫷', pos:new T.Vector3( 0.00,1.14,-0.60)},
+    {id:'head',   name:'Head',   emoji:'🙆', pos:new T.Vector3( 0.00,1.52,-0.52)},
   ];
 
   const DIFF={
@@ -136,10 +136,10 @@
   scene.fog=new T.Fog(0x14283c,7,30);
 
   const EYE=1.62;
-  const camera=new T.PerspectiveCamera(80,1,0.01,120);
-  camera.position.set(0,EYE,0.10);
-  // a comfortable downward gaze so you see your own body + the play area
-  const restLook=new T.Vector3(0,0.70,-1.5);
+  const camera=new T.PerspectiveCamera(82,1,0.01,120);
+  camera.position.set(0,EYE,0.18);
+  // a strong downward gaze so your own body fills the lower screen
+  const restLook=new T.Vector3(0,0.42,-1.35);
   camera.lookAt(restLook);
 
   // sky dome
@@ -153,8 +153,8 @@
 
   // lights
   scene.add(new T.HemisphereLight(0xdfeeff,0x2c465c,1.05));
-  const key=new T.DirectionalLight(0xffffff,0.85); key.position.set(2,6,3); scene.add(key);
-  const rim=new T.DirectionalLight(0x9fd0ff,0.35); rim.position.set(-3,2,-4); scene.add(rim);
+  const keyL=new T.DirectionalLight(0xffffff,0.85); keyL.position.set(2,6,3); scene.add(keyL);
+  const rimL=new T.DirectionalLight(0x9fd0ff,0.35); rimL.position.set(-3,2,-4); scene.add(rimL);
 
   // ground + grid + court circle
   const ground=new T.Mesh(new T.PlaneGeometry(80,80),
@@ -175,34 +175,34 @@
   const shoeMat=new T.MeshStandardMaterial({color:0xf2f5f8,roughness:0.5});
   const soleMat=new T.MeshStandardMaterial({color:0x9aa6b0,roughness:0.8});
 
-  // torso you see when looking down (chest -> waist), tilted slightly forward
-  const torso=new T.Mesh(new T.CylinderGeometry(0.17,0.135,0.60,18),shirt);
-  torso.position.set(0,1.18,-0.05); torso.rotation.x=0.12; scene.add(torso);
+  // torso you see when looking down (chest -> waist), leaning forward
+  const torso=new T.Mesh(new T.CylinderGeometry(0.17,0.135,0.58,18),shirt);
+  torso.position.set(0,1.12,-0.18); torso.rotation.x=0.22; scene.add(torso);
 
   function makeLeg(sign){
-    const hip=new T.Group(); hip.position.set(sign*0.105,0.92,-0.02);
-    hip.rotation.x=0.95;                       // thigh angles down & forward
+    const hip=new T.Group(); hip.position.set(sign*0.1,0.9,-0.08);
+    hip.rotation.x=1.18;                        // thigh angles down & forward
     const thigh=new T.Mesh(new T.CylinderGeometry(0.085,0.07,0.46,14),pants);
     thigh.position.set(0,-0.23,0); hip.add(thigh);
-    const knee=new T.Group(); knee.position.set(0,-0.46,0); knee.rotation.x=-0.78; hip.add(knee); // shin ~vertical
+    const knee=new T.Group(); knee.position.set(0,-0.46,0); knee.rotation.x=-1.00; hip.add(knee); // shin ~vertical
     const shin=new T.Mesh(new T.CylinderGeometry(0.065,0.052,0.50,14),pants);
     shin.position.set(0,-0.25,0); knee.add(shin);
     const ankle=new T.Group(); ankle.position.set(0,-0.50,0); knee.add(ankle);
-    const shoe=new T.Mesh(new T.BoxGeometry(0.12,0.075,0.26),shoeMat);
-    shoe.position.set(0,-0.02,-0.06); ankle.add(shoe);
-    const sole=new T.Mesh(new T.BoxGeometry(0.125,0.03,0.265),soleMat);
-    sole.position.set(0,-0.055,-0.06); ankle.add(sole);
+    const shoe=new T.Mesh(new T.BoxGeometry(0.12,0.075,0.27),shoeMat);
+    shoe.position.set(0,-0.02,-0.07); ankle.add(shoe);
+    const sole=new T.Mesh(new T.BoxGeometry(0.125,0.03,0.275),soleMat);
+    sole.position.set(0,-0.055,-0.07); ankle.add(sole);
     hip.userData={knee}; scene.add(hip);
     return hip;
   }
   const legL=makeLeg(-1), legR=makeLeg(1);
 
   function makeArm(sign){
-    const sh=new T.Group(); sh.position.set(sign*0.185,1.42,-0.02);
-    sh.rotation.x=0.55;                        // arms rest down & a bit forward
+    const sh=new T.Group(); sh.position.set(sign*0.17,1.4,-0.14);
+    sh.rotation.x=0.65;                         // arms rest down & forward
     const upper=new T.Mesh(new T.CylinderGeometry(0.052,0.045,0.30,12),shirt);
     upper.position.set(0,-0.15,0); sh.add(upper);
-    const elbow=new T.Group(); elbow.position.set(0,-0.30,0); elbow.rotation.x=0.2; sh.add(elbow);
+    const elbow=new T.Group(); elbow.position.set(0,-0.30,0); elbow.rotation.x=0.25; sh.add(elbow);
     const fore=new T.Mesh(new T.CylinderGeometry(0.045,0.038,0.28,12),skin);
     fore.position.set(0,-0.14,0); elbow.add(fore);
     const hand=new T.Mesh(new T.SphereGeometry(0.052,12,10),skin);
@@ -212,8 +212,7 @@
   }
   const armL=makeArm(-1), armR=makeArm(1);
 
-  // rest pose snapshot (so animation returns smoothly)
-  const REST={legHipX:0.95, kneeX:-0.78, armShX:0.55, armElX:0.2};
+  const REST={legHipX:1.18, kneeX:-1.00, armShX:0.65, armElX:0.25};
 
   // ---------- footbag ----------
   const bag=new T.Group();
@@ -270,7 +269,7 @@
     const travel=Math.max(380,DIFF[mode].travel-state.speedBoost);
     state.target=move; state.from.copy(fromPt); state.to.copy(move.pos);
     state.t0=now; state.idealT=now+travel;
-    state.apex.set((Math.random()-0.5)*0.5, 2.4+Math.random()*0.4, -2.1-Math.random()*0.6);
+    state.apex.set((Math.random()-0.5)*0.5, 2.2+Math.random()*0.4, -1.9-Math.random()*0.5);
     state.resolved=false; lightPad(move.id);
   }
   function seg(a,mid,b,p){const la=(a-mid)/0.25,lb=(b-mid)/0.25;return p<0.5?mid+la*(p-0.5)*(p-0.5):mid+lb*(p-0.5)*(p-0.5);}
@@ -345,17 +344,17 @@
   function animLimbs(now){
     setRest();
     if(!state||!state.limb.id)return;
-    const dt=now-state.limb.t; if(dt>360)return;
-    const k=Math.sin(Math.min(1,dt/360)*Math.PI), id=state.limb.id;
-    if(id==='inside'){ legL.rotation.x=REST.legHipX-k*1.15; legL.rotation.z=k*0.30;
-      legL.userData.knee.rotation.x=REST.kneeX+k*0.85; }
-    else if(id==='outside'){ legR.rotation.x=REST.legHipX-k*1.15; legR.rotation.z=-k*0.30;
-      legR.userData.knee.rotation.x=REST.kneeX+k*0.85; }
-    else if(id==='knee'){ legL.rotation.x=REST.legHipX-k*1.55;
-      legL.userData.knee.rotation.x=REST.kneeX+k*0.45; }
-    else if(id==='chest'){ armL.rotation.x=REST.armShX-k*1.25; armR.rotation.x=REST.armShX-k*1.25;
-      armL.userData.elbow.rotation.x=REST.armElX+k*0.5; armR.userData.elbow.rotation.x=REST.armElX+k*0.5; }
-    else if(id==='head'){ armL.rotation.x=REST.armShX-k*1.6; armR.rotation.x=REST.armShX-k*1.6; }
+    const dt=now-state.limb.t; if(dt>380)return;
+    const k=Math.sin(Math.min(1,dt/380)*Math.PI), id=state.limb.id;
+    if(id==='inside'){ legL.rotation.x=REST.legHipX-k*1.25; legL.rotation.z=k*0.32;
+      legL.userData.knee.rotation.x=REST.kneeX+k*0.95; }
+    else if(id==='outside'){ legR.rotation.x=REST.legHipX-k*1.25; legR.rotation.z=-k*0.32;
+      legR.userData.knee.rotation.x=REST.kneeX+k*0.95; }
+    else if(id==='knee'){ legL.rotation.x=REST.legHipX-k*1.75;
+      legL.userData.knee.rotation.x=REST.kneeX+k*0.55; }
+    else if(id==='chest'){ armL.rotation.x=REST.armShX-k*1.35; armR.rotation.x=REST.armShX-k*1.35;
+      armL.userData.elbow.rotation.x=REST.armElX+k*0.55; armR.userData.elbow.rotation.x=REST.armElX+k*0.55; }
+    else if(id==='head'){ armL.rotation.x=REST.armShX-k*1.7; armR.rotation.x=REST.armShX-k*1.7; }
   }
   setRest();
 
@@ -376,9 +375,9 @@
       const bs=Math.max(0.4,1.1-pos.y*0.18); blob.scale.set(bs,bs,1);
       blob.material.opacity=Math.max(0.05,0.3-pos.y*0.07);
 
-      // gaze: mostly fixed forward-down, glances gently toward the sack
-      tmpV.copy(restLook).lerp(pos,0.16);
-      state.gaze.lerp(tmpV,1-Math.pow(0.002,dt));
+      // gaze: forward-down rest, eyes follow the sack as it rises/falls
+      tmpV.copy(restLook).lerp(pos,0.32);
+      state.gaze.lerp(tmpV,1-Math.pow(0.0015,dt));
       camera.lookAt(state.gaze);
 
       if(!state.resolved){
