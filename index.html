@@ -15,17 +15,20 @@
     padding:14px 18px;pointer-events:none;font-variant-numeric:tabular-nums;z-index:5;}
   .stat{background:rgba(0,0,0,.3);backdrop-filter:blur(6px);padding:6px 12px;border-radius:12px;}
   .stat b{color:var(--accent);font-size:20px;}
+  #menuBtn{pointer-events:auto;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.16);
+    color:var(--ink);font-weight:700;font-size:13px;padding:7px 13px;border-radius:11px;cursor:pointer;align-self:flex-start;}
+  #menuBtn:active{transform:scale(.95);}
   .label{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.08em;}
   #combo{position:absolute;top:28%;left:50%;transform:translate(-50%,-50%);font-size:46px;font-weight:800;opacity:0;
     pointer-events:none;text-shadow:0 4px 18px rgba(0,0,0,.5);z-index:5;}
   #judge{position:absolute;top:21%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:800;opacity:0;
     pointer-events:none;letter-spacing:.04em;z-index:5;}
-  #pads{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
-    padding:8px 8px 12px;z-index:5;}
-  .pad{position:relative;background:rgba(22,34,46,.72);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.08);
-    border-radius:13px;padding:9px 2px;text-align:center;font-weight:700;font-size:12px;color:var(--ink);
+  #pads{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;
+    padding:4px 6px 6px;z-index:5;}
+  .pad{position:relative;background:rgba(16,26,36,.42);backdrop-filter:blur(5px);border:1.5px solid rgba(255,255,255,.08);
+    border-radius:10px;padding:5px 2px;text-align:center;font-weight:700;font-size:10.5px;color:var(--ink);
     transition:transform .05s,background .1s;}
-  .pad .emoji{font-size:20px;display:block;margin-bottom:1px;}
+  .pad .emoji{font-size:15px;display:block;margin-bottom:0;line-height:1.1;}
   .pad.lit{background:#26415a;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset,0 0 22px rgba(255,216,77,.4);}
   .pad.hold{border-color:#b98cff;box-shadow:0 0 0 2px #b98cff inset,0 0 22px rgba(185,140,255,.55);}
   .pad:active{transform:scale(.93);}
@@ -67,6 +70,7 @@
   <canvas id="gl"></canvas>
   <div id="hud">
     <div class="stat"><div class="label">Score</div><b id="score">0</b></div>
+    <button id="menuBtn">☰ Menu</button>
     <div class="stat" style="text-align:right"><div class="label">Best</div><b id="best">0</b></div>
   </div>
   <div id="combo"></div>
@@ -109,6 +113,7 @@
       <div><div class="label">Touches</div><div class="num" id="touchCount">0</div></div>
     </div>
     <button class="cta" id="againBtn">Play Again</button>
+    <button class="ghost" id="overMenu">Menu</button>
   </div>
 </div>
 
@@ -164,7 +169,7 @@
   const EYE=1.62;
   const camera=new T.PerspectiveCamera(72,1,0.01,120);
   camera.position.set(0,EYE,0.06);
-  const restLook=new T.Vector3(0,0.6,-1.5); camera.lookAt(restLook);
+  const restLook=new T.Vector3(0,0.8,-1.65); camera.lookAt(restLook);   // look a touch more forward so the action sits higher than the buttons
 
   {
     const mat=new T.ShaderMaterial({side:T.BackSide,
@@ -234,31 +239,24 @@
     }
     const shadow=new T.Mesh(new T.CircleGeometry(0.3,24),new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.22}));
     shadow.rotation.x=-Math.PI/2; shadow.position.y=0.012; g.add(shadow);
-    const bbag=new T.Mesh(new T.SphereGeometry(0.058,14,12),new T.MeshStandardMaterial({color:0xf2a73c,roughness:0.7}));
-    g.add(bbag);
-    g.rotation.y=Math.atan2(x,z);                               // front (-z: eyes, toes, bag) faces the player
-    g.userData={legs,arms,bbag,phase:Math.random()*6.28,spd:2.3+Math.random()*0.6};
+    g.rotation.y=Math.atan2(x,z);                               // front (-z: eyes, toes) faces the player
+    g.userData={legs,arms,phase:Math.random()*6.28,spd:1.4+Math.random()*0.4};
     scene.add(g); return g;
   }
   BOTS.push(makeBot(-1.15,-1.35,0xd9544d));
   BOTS.push(makeBot(0,-1.75,0x4dd07f));
   BOTS.push(makeBot(1.15,-1.35,0xe0a93c));
 
-  // bots juggle their own sack: bag bounces, the kicking leg lifts to meet it, move type cycles
+  // calm idle: gentle weight shift + arm sway, ready stance (no flailing, no ball)
   function updateBots(dt){
     for(const b of BOTS){
       const u=b.userData; u.phase+=dt*u.spd;
-      const c=Math.sin(u.phase), tphase=(c+1)/2;               // 0..1..0
-      const low=1-tphase;                                       // 1 at bottom of bounce
-      u.bbag.position.set(Math.sin(u.phase*0.7)*0.05, 0.2+tphase*0.62, -0.34);
-      const which=Math.floor(u.phase/Math.PI)%2;               // alternate legs
-      const move=Math.floor(u.phase/(Math.PI*3))%3;            // 0 inside, 1 toe, 2 knee
-      u.legs[0].hip.rotation.set(0,0,0); u.legs[0].knee.rotation.x=0;
-      u.legs[1].hip.rotation.set(0,0,0); u.legs[1].knee.rotation.x=0;
-      const lg=u.legs[which];
-      if(move===2){ lg.hip.rotation.x=low*1.5; lg.knee.rotation.x=low*1.1; }          // knee raise
-      else if(move===1){ lg.hip.rotation.x=low*1.0; lg.knee.rotation.x=low*0.25; }    // toe (straight)
-      else { lg.hip.rotation.x=low*0.85; lg.hip.rotation.z=(which?-1:1)*low*0.45; lg.knee.rotation.x=low*0.5; } // inside
+      const s=Math.sin(u.phase);
+      b.position.y=Math.abs(s)*0.012;                           // soft bob
+      u.legs[0].hip.rotation.set(0,0,0); u.legs[1].hip.rotation.set(0,0,0);
+      u.legs[0].knee.rotation.x=0.06+Math.max(0, s)*0.12;       // subtle alternating knee bend
+      u.legs[1].knee.rotation.x=0.06+Math.max(0,-s)*0.12;
+      u.arms[0].sh.rotation.x=0.22+s*0.05; u.arms[1].sh.rotation.x=0.22-s*0.05;
     }
   }
 
@@ -658,14 +656,15 @@
       blob.position.set(pos.x,0.012,pos.z);
       const bs=Math.max(0.4,1.1-pos.y*0.18); blob.scale.set(bs,bs,1); blob.material.opacity=Math.max(0.05,0.3-pos.y*0.07);
 
-      let offX=pos.x*0.7, offY=clamp((pos.y-0.95)*0.13,-0.16,0.14), offZ=0;
-      if(state.limb.id){const a=now-state.limb.t; if(a<320){const kk=Math.sin(Math.min(1,a/320)*Math.PI);
-        offX+=state.hitPos.x*0.85*kk; offY+=(state.hitPos.y-EYE)*0.16*kk; offZ+=-0.07*kk;}}
-      offX=clamp(offX,-0.38,0.38);
-      // livelier head: more sway + lean toward where the sack is
-      const tx=offX+Math.sin(t*1.05)*0.012, ty=EYE+offY+Math.sin(t*1.9)*0.011, tz=0.06+offZ;
+      // gentle: don't glue the camera to the sack (otherwise it looks tethered/rubber-band)
+      let offX=pos.x*0.25, offY=clamp((pos.y-1.0)*0.07,-0.1,0.1), offZ=0;
+      if(state.limb.id){const a=now-state.limb.t; if(a<300){const kk=Math.sin(Math.min(1,a/300)*Math.PI);
+        offX+=state.hitPos.x*0.35*kk; offY+=(state.hitPos.y-EYE)*0.08*kk; offZ+=-0.04*kk;}}
+      offX=clamp(offX,-0.22,0.22);
+      const tx=offX+Math.sin(t*0.8)*0.007, ty=EYE+offY+Math.sin(t*1.6)*0.007, tz=0.06+offZ;
       camera.position.x+=(tx-camera.position.x)*ease; camera.position.y+=(ty-camera.position.y)*ease; camera.position.z+=(tz-camera.position.z)*ease;
-      tmpV.copy(restLook).lerp(pos,0.52); if(tmpV.y>1.62)tmpV.y=1.62; state.gaze.lerp(tmpV,ease); camera.lookAt(state.gaze);
+      // eyes drift toward the sack but stay mostly forward, so it arcs through the view
+      tmpV.copy(restLook).lerp(pos,0.30); if(tmpV.y>1.62)tmpV.y=1.62; state.gaze.lerp(tmpV,ease); camera.lookAt(state.gaze);
 
       if(!state.resolved){
         ringMesh.visible=true; ringMesh.position.copy(state.to); ringMesh.quaternion.copy(camera.quaternion);
@@ -705,8 +704,18 @@
   }
   document.getElementById('modeSel').addEventListener('click',e=>{const m=e.target.closest('.mode');if(!m)return;
     mode=m.dataset.mode;document.querySelectorAll('#modeSel .mode').forEach(x=>x.classList.toggle('on',x===m));});
+  function toMenu(){
+    running=false;
+    if(state){ state.stalling=null; state.passAnim=null; }
+    state=null; clearPads();
+    stallEl.classList.add('hidden'); passHint.classList.add('hidden');
+    overScreen.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+  }
   document.getElementById('startBtn').addEventListener('click',startGame);
   document.getElementById('againBtn').addEventListener('click',startGame);
+  document.getElementById('menuBtn').addEventListener('click',toMenu);   // quit any mode (incl. Peaceful)
+  document.getElementById('overMenu').addEventListener('click',toMenu);
   // customization UI
   const customScreen=document.getElementById('customScreen');
   const hex=n=>'#'+n.toString(16).padStart(6,'0');
