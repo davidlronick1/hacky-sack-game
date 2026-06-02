@@ -128,10 +128,10 @@
   scene.fog=new T.Fog(0x14283c,7,30);
 
   const EYE=1.62;
-  const camera=new T.PerspectiveCamera(82,1,0.01,120);
-  camera.position.set(0,EYE,0.18);
-  // a strong downward gaze so your own body fills the lower screen
-  const restLook=new T.Vector3(0,0.42,-1.35);
+  const camera=new T.PerspectiveCamera(72,1,0.01,120);
+  camera.position.set(0,EYE,0.06);
+  // downward gaze: see your legs receding in front + the play area
+  const restLook=new T.Vector3(0,0.62,-1.5);
   camera.lookAt(restLook);
 
   // sky dome
@@ -167,12 +167,12 @@
   const shoeMat=new T.MeshStandardMaterial({color:0xf2f5f8,roughness:0.5});
   const soleMat=new T.MeshStandardMaterial({color:0x9aa6b0,roughness:0.8});
 
-  // torso you see when looking down (chest -> waist), leaning forward
-  const torso=new T.Mesh(new T.CylinderGeometry(0.17,0.135,0.58,18),shirt);
-  torso.position.set(0,1.12,-0.18); torso.rotation.x=0.22; scene.add(torso);
+  // small waist/lap sliver at the very bottom of view (avoids a big chest blob)
+  const torso=new T.Mesh(new T.CylinderGeometry(0.15,0.13,0.34,18),shirt);
+  torso.position.set(0,0.98,-0.12); torso.rotation.x=0.30; scene.add(torso);
 
   function makeLeg(sign){
-    const hip=new T.Group(); hip.position.set(sign*0.1,0.9,-0.08);
+    const hip=new T.Group(); hip.position.set(sign*0.11,0.9,-0.06);
     hip.rotation.x=1.18;                        // thigh angles down & forward
     const thigh=new T.Mesh(new T.CylinderGeometry(0.085,0.07,0.46,14),pants);
     thigh.position.set(0,-0.23,0); hip.add(thigh);
@@ -368,7 +368,7 @@
       blob.material.opacity=Math.max(0.05,0.3-pos.y*0.07);
 
       // gaze: forward-down rest, eyes follow the sack as it rises/falls
-      tmpV.copy(restLook).lerp(pos,0.32);
+      tmpV.copy(restLook).lerp(pos,0.26);
       state.gaze.lerp(tmpV,1-Math.pow(0.0015,dt));
       camera.lookAt(state.gaze);
 
