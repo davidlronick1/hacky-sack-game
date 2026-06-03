@@ -11,6 +11,8 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);user-select:none;}
   #wrap{position:fixed;inset:0;}
   #gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;}
+  #vignette{position:absolute;inset:0;pointer-events:none;z-index:4;
+    box-shadow:inset 0 0 200px 60px rgba(0,0,0,.5); background:radial-gradient(120% 80% at 50% 38%,transparent 55%,rgba(0,0,0,.28) 100%);}
   #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;
     padding:14px 18px;pointer-events:none;font-variant-numeric:tabular-nums;z-index:5;}
   .stat{background:rgba(0,0,0,.3);backdrop-filter:blur(6px);padding:6px 12px;border-radius:12px;}
@@ -30,7 +32,8 @@
     filter:drop-shadow(0 -2px 10px rgba(0,0,0,.35));}
   .zone{fill:rgba(38,58,78,.55);stroke:rgba(255,255,255,.28);stroke-width:1.5;cursor:pointer;transition:fill .08s,stroke .08s;}
   .zone:hover{fill:rgba(74,108,140,.8);}
-  .zone.reach{fill:rgba(255,216,77,.6);stroke:var(--accent);}
+  .zone.reach{fill:rgba(255,216,77,.6);stroke:var(--accent);stroke-width:2.5;animation:zpulse .7s ease-in-out infinite;}
+  @keyframes zpulse{0%,100%{fill:rgba(255,216,77,.42);}50%{fill:rgba(255,216,77,.78);}}
   .zone.flash{fill:var(--perfect);stroke:#fff;}
   .silh{fill:rgba(26,40,54,.5);stroke:rgba(255,255,255,.12);stroke-width:1;}
   .zlabel{fill:#dce8f2;font-size:8.5px;font-weight:800;pointer-events:none;text-anchor:middle;}
@@ -67,6 +70,7 @@
 <body>
 <div id="wrap">
   <canvas id="gl"></canvas>
+  <div id="vignette"></div>
   <div id="hud">
     <div class="stat"><div class="label">Score</div><b id="score">0</b></div>
     <button id="menuBtn">☰ Menu</button>
@@ -172,6 +176,18 @@
   if(!T){ loadingEl.textContent='Could not load 3D library.'; return; }
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,t)=>a+(b-a)*t;
+  // ---------- audio (Web Audio, offline) ----------
+  let actx=null;
+  function initAudio(){ try{ if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended')actx.resume(); }catch(e){} }
+  function blip(freq,dur,type,vol,t0){ if(!actx)return; const o=actx.createOscillator(),g=actx.createGain();
+    o.type=type;o.frequency.value=freq;o.connect(g);g.connect(actx.destination);
+    const t=t0||actx.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.start(t); o.stop(t+dur+0.03); }
+  function sfxHit(q){ if(!actx)return; const t=actx.currentTime;
+    if(q==='perfect'){blip(880,0.14,'triangle',0.22,t);blip(1320,0.17,'sine',0.12,t+0.02);}
+    else if(q==='good'){blip(620,0.11,'triangle',0.17,t);} else blip(430,0.09,'square',0.12,t); }
+  function sfxDrop(){ initAudio(); if(!actx)return; const t=actx.currentTime; blip(170,0.35,'sawtooth',0.22,t); blip(90,0.4,'sine',0.18,t); }
+  function sfxStall(){ if(!actx)return; const t=actx.currentTime; blip(560,0.16,'sine',0.16,t); blip(760,0.22,'sine',0.12,t+0.07); }
 
   const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
   const comboEl=document.getElementById('combo'), judgeEl=document.getElementById('judge');
@@ -190,7 +206,9 @@
   const canvas=document.getElementById('gl');
   const renderer=new T.WebGLRenderer({canvas,antialias:true});
   renderer.setClearColor(0x0b1620,1); renderer.outputEncoding=T.sRGBEncoding;
-  const scene=new T.Scene(); scene.fog=new T.Fog(0x14283c,8,32);
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=T.PCFSoftShadowMap;
+  renderer.toneMapping=T.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12;
+  const scene=new T.Scene(); scene.fog=new T.Fog(0x16293c,9,34);
   const EYE=1.62;
   const camera=new T.PerspectiveCamera(72,1,0.01,120);
   camera.position.set(0,EYE,0.06);
@@ -203,12 +221,15 @@
       fragmentShader:`varying float h;uniform vec3 top;uniform vec3 bot;void main(){gl_FragColor=vec4(mix(bot,top,clamp(h*0.6+0.4,0.0,1.0)),1.0);}`});
     scene.add(new T.Mesh(new T.SphereGeometry(50,24,16),mat));
   }
-  scene.add(new T.HemisphereLight(0xdfeeff,0x2c465c,1.05));
-  const keyL=new T.DirectionalLight(0xffffff,0.9); keyL.position.set(2,6,3); scene.add(keyL);
-  const rimL=new T.DirectionalLight(0x9fd0ff,0.4); rimL.position.set(-3,2,-4); scene.add(rimL);
-  const ground=new T.Mesh(new T.PlaneGeometry(80,80),new T.MeshStandardMaterial({color:0x1d3344,roughness:1}));
-  ground.rotation.x=-Math.PI/2; scene.add(ground);
-  const grid=new T.GridHelper(80,80,0x3f7aa0,0x21384a); grid.material.opacity=0.32; grid.material.transparent=true; scene.add(grid);
+  scene.add(new T.HemisphereLight(0xdfeeff,0x2c465c,0.85));
+  const keyL=new T.DirectionalLight(0xfff1d6,1.35); keyL.position.set(3.5,7,3); keyL.castShadow=true;
+  keyL.shadow.mapSize.set(1024,1024); keyL.shadow.camera.near=0.5; keyL.shadow.camera.far=24;
+  keyL.shadow.camera.left=-5; keyL.shadow.camera.right=5; keyL.shadow.camera.top=5; keyL.shadow.camera.bottom=-5;
+  keyL.shadow.bias=-0.0008; scene.add(keyL);
+  const rimL=new T.DirectionalLight(0x9fd0ff,0.55); rimL.position.set(-4,3,-4); scene.add(rimL);
+  const ground=new T.Mesh(new T.PlaneGeometry(80,80),new T.MeshStandardMaterial({color:0x21394e,roughness:0.95,metalness:0.0}));
+  ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+  const grid=new T.GridHelper(80,80,0x4a86b0,0x223a4e); grid.material.opacity=0.28; grid.material.transparent=true; grid.position.y=0.002; scene.add(grid);
   {
     const ring=new T.Mesh(new T.RingGeometry(1.5,1.57,56),new T.MeshBasicMaterial({color:0x57a0cc,transparent:true,opacity:0.4,side:T.DoubleSide}));
     ring.rotation.x=-Math.PI/2; ring.position.y=0.01; scene.add(ring);
@@ -367,6 +388,15 @@
   scene.add(bag); bag.position.set(0,1.4,-0.5);
   const blob=new T.Mesh(new T.CircleGeometry(0.085,22),new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.3}));
   blob.rotation.x=-Math.PI/2; blob.position.y=0.012; scene.add(blob);
+  // fading sack trail
+  const TRAIL=10, trail=[];
+  for(let i=0;i<TRAIL;i++){ const m=new T.Mesh(new T.SphereGeometry(0.055,10,8),
+    new T.MeshBasicMaterial({color:0xffd27a,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending}));
+    scene.add(m); trail.push({m,p:new T.Vector3(0,1.5,-0.5)}); }
+  function updateTrail(){ const head=(running&&state)?state.ball.pos:bag.position;
+    for(let i=0;i<TRAIL;i++){ const tgt=i===0?head:trail[i-1].p; trail[i].p.lerp(tgt,0.45); trail[i].m.position.copy(trail[i].p);
+      const f=1-i/TRAIL; trail[i].m.material.color.copy(bagCoreMat.color); trail[i].m.material.opacity=(running&&state&&!state.stalling)?0.3*f:0; trail[i].m.scale.setScalar(0.45+0.55*f); } }
+  const _UP=new T.Vector3(0,1,0), _dir=new T.Vector3();
 
   // ---------- customization ----------
   const FOOTBAGS=[
@@ -450,6 +480,7 @@
     overScreen.classList.remove('hidden');
   }
   function drop(){
+    sfxDrop();
     if(DIFF[mode].forgive){ state.combo=0; showJudge('miss',0); serve(); }
     else gameOver();
   }
@@ -472,7 +503,7 @@
     const pts={perfect:100,good:60,ok:30}[q], mult=1+Math.floor(state.combo/4)*0.5, gained=Math.round(pts*mult);
     state.score+=gained; state.combo++; state.touches++;
     if(state.combo>state.bestCombo)state.bestCombo=state.combo; if(q==='perfect')state.perfects++;
-    showJudge(q,gained); flashCombo(); burst(c,q);
+    showJudge(q,gained); flashCombo(); burst(c,q); sfxHit(q);
     state.limb={id,t:performance.now()};
   }
 
@@ -490,8 +521,8 @@
       const mult=1+Math.floor(state.combo/4)*0.5, gained=Math.round(200*mult);
       state.score+=gained; state.combo++; state.touches++;
       if(state.combo>state.bestCombo)state.bestCombo=state.combo;
-      showJudge('perfect',gained); flashCombo(); burst(state.ball.pos,'perfect');
-    } else { state.combo=0; showJudge('miss',0); }
+      showJudge('perfect',gained); flashCombo(); burst(state.ball.pos,'perfect'); sfxStall();
+    } else { state.combo=0; showJudge('miss',0); sfxDrop(); }
     // pop the sack back up in front so play continues
     state.ball.pos.set(0,1.5,-0.4); state.ball.vel.set(0,-1.0,0);
     state.limb={id:null,t:performance.now()};
@@ -505,7 +536,7 @@
     const elapsed=(now-st.t0)/1000; stallTimer.textContent=Math.max(0,st.dur-elapsed).toFixed(1)+'s';
     // bag rests on the bent-over back/neck, wobbling with balance
     const restY=st.part==='neck'?1.42:1.30, restZ=st.part==='neck'?-0.46:-0.34;
-    state.ball.pos.set(st.b*0.14, restY, restZ); bag.position.copy(state.ball.pos);
+    state.ball.pos.set(st.b*0.14, restY, restZ); bag.position.copy(state.ball.pos); bag.scale.set(1,1,1); bag.quaternion.identity();
     if(Math.abs(st.b)>=1) endStall(false);
     else if(elapsed>=st.dur) endStall(true);
   }
@@ -550,8 +581,12 @@
         b.vel.y-=G*dt;
         b.vel.x+=(0-b.pos.x)*2.2*dt; b.vel.z+=(-0.5-b.pos.z)*2.2*dt;
         b.vel.x*=0.99; b.vel.z*=0.99;
+        b.vel.multiplyScalar(0.999);                                 // slight air drag
         b.pos.addScaledVector(b.vel,dt);
-        bag.position.copy(b.pos); bag.rotation.x+=dt*4; bag.rotation.y+=dt*3;
+        bag.position.copy(b.pos);
+        const sp=b.vel.length();                                     // velocity-aligned squash/stretch
+        if(sp>0.25){ _dir.copy(b.vel).normalize(); bag.quaternion.setFromUnitVectors(_UP,_dir); }
+        const stq=clamp(sp*0.05,0,0.42); bag.scale.set(1-stq*0.45,1+stq,1-stq*0.45);
         blob.position.set(b.pos.x,0.012,b.pos.z);
         const bs=Math.max(0.4,1.1-b.pos.y*0.18); blob.scale.set(bs,bs,1); blob.material.opacity=Math.max(0.05,0.3-b.pos.y*0.07);
         if(b.pos.y<0.12 && b.vel.y<0) drop();
@@ -589,6 +624,8 @@
       camera.lookAt(restLook); driveBody(dt);
     }
 
+    updateTrail();
+
     let any=false;
     for(let i=0;i<SPARKS;i++){const s=sparkData[i];
       if(s.life>0){s.life-=dt*1.4;s.v.y-=4.5*dt;s.p.addScaledVector(s.v,dt);
@@ -598,7 +635,7 @@
   }
 
   // ---------- controls / boot ----------
-  function startGame(){ state=newState(); startScreen.classList.add('hidden');overScreen.classList.add('hidden'); running=true; updateHUD(); serve(); }
+  function startGame(){ initAudio(); state=newState(); startScreen.classList.add('hidden');overScreen.classList.add('hidden'); running=true; updateHUD(); bag.scale.set(1,1,1); serve(); }
   function toMenu(){ running=false; if(state)state.stalling=null; state=null;
     stallEl.classList.add('hidden'); overScreen.classList.add('hidden'); avatar.visible=false; lowerBody.visible=true;
     for(const k in zones)zones[k].classList.remove('reach'); startScreen.classList.remove('hidden'); }
@@ -631,6 +668,8 @@
     camera.aspect=w/h;camera.updateProjectionMatrix();}
   window.addEventListener('resize',resize);resize();
 
+  // soft shadows on characters + sack
+  [bag,avatar,lowerBody,upperBody].concat(BOTS).forEach(g=>g.traverse(o=>{if(o.isMesh)o.castShadow=true;}));
   bestEl.textContent=+(localStorage.getItem('fb3d_best')||0);
   loadingEl.style.display='none'; startScreen.classList.remove('hidden'); animate();
 })();
