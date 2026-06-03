@@ -359,8 +359,8 @@
   const armRest={sh:0.15,el:0.2};
   const ARMSTRIKE={ chest:{sh:1.0,el:0.5}, head:{sh:1.9,el:0.4} };
   // launch power per surface: [base, precisionScale]. Only the TOE truly launches the sack high.
-  const LAUNCH={ Ltoe:[2.8,3.2],Rtoe:[2.8,3.2], Lin:[2.45,1.25],Rin:[2.45,1.25],Lout:[2.45,1.25],Rout:[2.45,1.25],
-    Lknee:[2.4,1.1],Rknee:[2.4,1.1], chest:[2.5,1.3],head:[2.6,1.4] };  // toe still highest; others now sustain juggling
+  const LAUNCH={ Ltoe:[1.65,1.9],Rtoe:[1.65,1.9], Lin:[1.45,0.75],Rin:[1.45,0.75],Lout:[1.45,0.75],Rout:[1.45,0.75],
+    Lknee:[1.42,0.65],Rknee:[1.42,0.65], chest:[1.48,0.77],head:[1.53,0.83] };  // rescaled for slow gravity: same heights, long hang time
   // every clickable part. legs use {leg:'L'/'R', eff, pose}; chest/head arms; neck/back stalls.
   const STRIKE={
     Lin :{leg:'L',eff:'foot',pose:{hx:1.0, hy:-0.55,hz:0.25, kx:-0.5, az:0.95}},  // knee out, instep turned up (real inside kick)
@@ -600,7 +600,7 @@
 
   // ---------- loop ----------
   const tmpV=new T.Vector3();
-  const G=8.0;
+  const G=2.8;   // floaty, slow gravity — long hang time
   function animate(){
     requestAnimationFrame(animate);
     const now=performance.now(), dt=Math.min(0.05,clock.getDelta()), t=clock.elapsedTime;
