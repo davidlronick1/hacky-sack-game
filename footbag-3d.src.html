@@ -321,12 +321,15 @@
   const legRest={hx:1.04,hy:0,hz:0,kx:-0.92,ax:0,az:0};
   const armRest={sh:0.15,el:0.2};
   const ARMSTRIKE={ chest:{sh:1.0,el:0.5}, head:{sh:1.9,el:0.4} };
+  // launch power per surface: [base, precisionScale]. Only the TOE truly launches the sack high.
+  const LAUNCH={ Ltoe:[2.6,3.3],Rtoe:[2.6,3.3], Lin:[1.85,0.55],Rin:[1.85,0.55],Lout:[1.85,0.55],Rout:[1.85,0.55],
+    Lknee:[1.9,0.6],Rknee:[1.9,0.6], chest:[2.2,1.2],head:[2.4,1.4] };
   // every clickable part. legs use {leg:'L'/'R', eff, pose}; chest/head arms; neck/back stalls.
   const STRIKE={
-    Lin :{leg:'L',eff:'foot',pose:{hx:1.0, hz:0.18, kx:-0.4, az:0.6}},
+    Lin :{leg:'L',eff:'foot',pose:{hx:1.0, hy:-0.55,hz:0.25, kx:-0.5, az:0.95}},  // knee out, instep turned up (real inside kick)
     Ltoe:{leg:'L',eff:'foot',pose:{hx:1.12,hz:0,    kx:-0.18,ax:0.6}},
     Lout:{leg:'L',eff:'foot',pose:{hx:0.95,hz:-0.34,kx:-0.42,az:0.6}},
-    Rin :{leg:'R',eff:'foot',pose:{hx:1.0, hz:-0.18,kx:-0.4, az:-0.6}},
+    Rin :{leg:'R',eff:'foot',pose:{hx:1.0, hy:0.55, hz:-0.25,kx:-0.5, az:-0.95}},
     Rtoe:{leg:'R',eff:'foot',pose:{hx:1.12,hz:0,    kx:-0.18,ax:0.6}},
     Rout:{leg:'R',eff:'foot',pose:{hx:0.95,hz:0.34, kx:-0.42,az:-0.6}},
     Lknee:{leg:'L',eff:'kneeNode',pose:{hx:1.35,kx:-1.5}},
@@ -463,7 +466,7 @@
     flashZone(id);
     if(STALL_PARTS[id]){ enterStall(id,q); return; }
     const power={perfect:1,good:0.66,ok:0.42}[q];
-    const vUp=2.4+power*3.1;                                       // precision -> launch speed -> height (weak stays low)
+    const L=LAUNCH[id]||[2.2,1.0]; const vUp=L[0]+power*L[1];     // toe lofts high; inside/outside just keep it low
     state.ball.pos.copy(c);
     state.ball.vel.set((0-c.x)*1.6, vUp, (-0.5-c.z)*1.3);
     const pts={perfect:100,good:60,ok:30}[q], mult=1+Math.floor(state.combo/4)*0.5, gained=Math.round(pts*mult);
@@ -476,7 +479,7 @@
   // ---------- neck / back stall (bird's-eye) ----------
   function enterStall(id,q){
     const dur=(mode==='pro'?2.6:mode==='peaceful'?1.9:2.2);
-    state.stalling={part:id, b:(Math.random()-0.5)*0.2, v:(Math.random()-0.5)*0.7, t0:performance.now(), dur, seed:Math.random()*6.28, G:6.2};
+    state.stalling={part:id, b:(Math.random()-0.5)*0.2, v:(Math.random()-0.5)*0.5, t0:performance.now(), dur, seed:Math.random()*6.28, G:3.2};
     state.limb={id,t:performance.now()};
     document.getElementById('stallLabel').textContent=id.toUpperCase()+' STALL — tilt / drag / ← → to balance';
     stallEl.classList.remove('hidden');
@@ -495,8 +498,8 @@
   }
   function updateStall(now,dt){
     const st=state.stalling, tt=now/1000;
-    const wind=(Math.sin(tt*1.3+st.seed)*0.55+Math.sin(tt*3.1+st.seed*1.7)*0.3)*0.9;
-    st.v+=(st.b*st.G+wind-tiltNow()*5.0)*dt; st.v*=0.985; st.b+=st.v*dt;
+    const wind=(Math.sin(tt*1.1+st.seed)*0.5+Math.sin(tt*2.4+st.seed*1.7)*0.25)*0.5;
+    st.v+=(st.b*st.G+wind-tiltNow()*4.8)*dt; st.v*=0.96; st.b+=st.v*dt;   // gentler, responsive to tilt/drag
     balMarker.style.left=(50+clamp(st.b,-1,1)*48)+'%';
     balMarker.style.background=Math.abs(st.b)>0.66?'var(--miss)':'var(--accent)';
     const elapsed=(now-st.t0)/1000; stallTimer.textContent=Math.max(0,st.dur-elapsed).toFixed(1)+'s';
